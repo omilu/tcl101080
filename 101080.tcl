@@ -104,6 +104,24 @@ proc timetest3 {} {
 
 puts "time to wait 5 sec: [time {timetest3}]"
 
+#++++++++++++++++++++++++++++++++++++++++++
+#this adds catches the ctrl-c signal and allow for a graceful
+#shutdown how to ad
+package require Expect
+
+proc sigint_handler {} {
+	puts "\n\n\n\nelapsed time"
+	puts "exiting gracefuly"
+	exit
+	set ::looping false
+}
+
+trap sigint_handler SIGINT
+
+#set start_time [clock seconds]
+#set n 0
+#set looping true
+
 
 proc main {} {
 	ifrInit;
@@ -118,6 +136,7 @@ proc main {} {
 
 	set x [expr {$x + 1}]
 	}	
+		puts "\n\n\n\nTest Complete\n\n"
 }
 
 main;
