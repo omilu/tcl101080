@@ -13,6 +13,11 @@ proc ifrInit {} {
 	after 1000;
 }
 
+proc abort {}	{
+	puts "aborting!"
+	exit
+}
+
 
 proc ifrSetRcvFreq {} {
 	puts "setting RCVR frequency"
@@ -31,6 +36,8 @@ proc ifrKeyRadio {} {
 
 proc ifrFreqError {} {
 	puts "checking freq error"
+	#send ifr string
+	#if {expect_out(buffer)}
 	after 500;
 }
 
@@ -59,6 +66,7 @@ proc txTest {} {
 	ifrKeyRadio;
 	after 500;
 	ifrFreqError;
+	
 	after 1000;
 	ifrUnKeyRadio;
 }
@@ -112,7 +120,8 @@ package require Expect
 proc sigint_handler {} {
 	puts "\n\n\n\nelapsed time"
 	puts "exiting gracefuly"
-	exit
+	#exit
+	abort
 	set ::looping false
 }
 
