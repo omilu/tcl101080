@@ -1,4 +1,7 @@
 #!/usr/bin/tclsh
+package require Expect
+
+send hi
 
 set state on 
 
@@ -15,6 +18,7 @@ proc ifrInit {} {
 
 proc abort {}	{
 	puts "aborting!"
+	exit
 }
 
 

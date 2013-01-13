@@ -1,4 +1,7 @@
 #!/usr/bin/tclsh
+#package require Expect
+
+send hi
 
 set state on 
 
