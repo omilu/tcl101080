@@ -12,19 +12,6 @@ proc checkTimer {} {
 	global g_myTimer;
 	expr {[clock milliseconds] > $g_myTimer};
 }
-setTimer 3;
-
-while {![checkTimer]} {
-	}
-puts "done waiting";
-
-setTimer 3;
-while {true} {
-	if {[checkTimer]} {
-		break
-	}
-}
-puts "done waitin gagain";
 
 
 
@@ -246,3 +233,18 @@ proc glotest2 {} {
 glotest state;
 glotest2;
 puts "$state out of proc";
+
+#how to use the timer and while loops and conditionals
+setTimer 3;
+
+while {![checkTimer]} {
+	}
+puts "done waiting";
+
+setTimer 3;
+while {true} {
+	if {[checkTimer]} {
+		break
+	}
+}
+puts "done waitin gagain";

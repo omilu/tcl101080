@@ -1,38 +1,41 @@
 #!/usr/bin/tclsh
 package require Expect
 
-set g_myTimer 0;
 
+#globals
+set g_myTimer 0;
+set g_systemTime [clock seconds];
+set g_ifrIp "121.111.168.111 1080";
+set g_arduinoSerialPort "/dev/ttyS18";
+set g_state on;
+set g_accumulator empty;
+set g_myQuit false;
+
+#need to spawn the process globally so can refer to it in subprocess
+#will be handled with expect
+#spawn telnet "$g_ifrIp";
+#set g_ifrHost $spawn_id;
+
+#the arduino serial looks just like a file
+#no need for expect
+#set arduino_serial [open $g_arduinoSerialPort r+];
+#fconfigure $arduino_serial -mode "9600,n,8,1";
+#fconfigure $arduino_serial -buffering none
+
+#the Timer is an egg timer
+#exports 2 function setTimer {timeInSeconds} and checkTimer
+#setTimer sets the global g_myTimer
 proc setTimer {timeInSeconds} {
 	global g_myTimer;
 	set g_myTimer [expr {[clock milliseconds] + [expr $timeInSeconds * 1000]}];
 }
 
+#checks g_myTimer returns true if expired false else
 proc checkTimer {} {
 	global g_myTimer;
 	expr {[clock milliseconds] > $g_myTimer};
 }
 
-
-
-#globals
-set system_time [clock seconds];
-set ifr_ip "121.111.168.111 1080";
-set arduino_serial_port "/dev/ttyS18";
-set state on 
-set accumulator empty;
-set my_Quit false;
-
-#need to spawn the process globally so can refer to it in subprocess
-#will be handled with expect
-#spawn telnet "$ifr_ip";
-#set ifr_host $spawn_id;
-
-#the arduino serial looks just like a file
-#no need for expect
-#set arduino_serial [open $arduino_serial_port r+];
-#fconfigure $arduino_serial -mode "9600,n,8,1";
-#fconfigure $arduino_serial -buffering none
 
 #get a time stamp for the logfile name
 proc myGetTime {} {
@@ -46,20 +49,20 @@ set logFile [open "$logFileName" w]
 puts $logFile [concat [myGetTime] "101080 battery test start"];
 
 proc traceAdd {someText} {
-	global accumulator;
-	append accumulator $someText;
+	global g_accumulator;
+	append g_accumulator $someText;
 }
 
 proc traceEmpty {} {
-	global accumulator;
-	set accumulator "_";
+	global g_accumulator;
+	set g_accumulator "_";
 }
 
-puts $accumulator
+puts $g_accumulator
 traceEmpty
 traceAdd "shome shitty medssage";
 traceAdd "and more shit:"
-puts $accumulator
+puts $g_accumulator
 
 
 
@@ -212,27 +215,27 @@ main;
 
 #troubleshooting and examples
 #declaring globals
-puts $ifr_ip;
-puts $state;
+puts $g_ifrIp;
+puts $g_state;
 
 #passing a global to a function with upvar
-proc glotest {state} {
-	upvar $state myvar;
+proc glotest {g_state} {
+	upvar $g_state myvar;
 	puts $myvar;
 	set myvar off;
 	puts $myvar;
 }
 
 proc glotest2 {} {
-	global state;
+	global g_state;
 	puts "glotest2";
-	puts $state;
+	puts $g_state;
 }
 
 #exectuing the function
-glotest state;
+glotest g_state;
 glotest2;
-puts "$state out of proc";
+puts "$g_state out of proc";
 
 #how to use the timer and while loops and conditionals
 setTimer 3;
