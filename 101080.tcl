@@ -1,6 +1,20 @@
 #!/usr/bin/tclsh
 package require Expect
 
+set g_myTimer 0;
+
+proc setTimer {timeInSeconds} {
+	global g_myTimer;
+	set g_myTimer [expr {[clock milliseconds] + [expr $timeInSeconds * 1000]}];
+}
+
+proc checkTimer {} {
+	global g_myTimer;
+	expr {[clock milliseconds] > $g_myTimer};
+}
+
+
+
 #globals
 set system_time [clock seconds];
 set ifr_ip "121.111.168.111 1080";
@@ -219,3 +233,18 @@ proc glotest2 {} {
 glotest state;
 glotest2;
 puts "$state out of proc";
+
+#how to use the timer and while loops and conditionals
+setTimer 3;
+
+while {![checkTimer]} {
+	}
+puts "done waiting";
+
+setTimer 3;
+while {true} {
+	if {[checkTimer]} {
+		break
+	}
+}
+puts "done waitin gagain";
