@@ -44,28 +44,27 @@ void loop()
   
   int count = 0;
   int bytesReceived = 0;
+  delay (500); //let the buffer fill up
   // if we get a valid byte, read analog ins:
+  
   if ((bytesReceived = Serial.available()) > 0) {
-    // get incoming byte:
-
-    //read until no new line
     while (bytesReceived) //clear buffer read until newline
     {
       inByte = Serial.read();
-      Serial.print(bytesReceived);
       if ((inByte != '\n') && (inByte != '\r'))
-        command = inByte;
-        Serial.print(command);
+        {
+          command = inByte;
+        }
         bytesReceived--;
     }
-    Serial.println("bbbbbbbb");
     if (command == 'a')
       {  
-        acounts++; //number of times a 
+        acounts++; //number of times a
+      } 
         Serial.print("arduino has received this many as: ");
         Serial.print(acounts);
         Serial.println('a'); //send the data to the computer
-      }
+      
   }
 }
 

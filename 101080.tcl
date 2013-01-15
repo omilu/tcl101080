@@ -2,25 +2,75 @@
 package require Expect
 
 
+#todo
+#add a way to raise a signal so can quit async without having
+#to poll
+
 #globals
 set g_myTimer 0;
 set g_systemTime [clock seconds];
-set g_ifrIp "121.111.168.111 1080";
+set g_ifrIp "199.131.111.62 1234";
 set g_arduinoSerialPort "/dev/ttyS18";
 set g_state on;
 set g_accumulator empty;
 set g_myQuit false;
+set g_myError false;
+set g_logFile empty;
+
+proc mySend {message} {
+	global g_ifrHost;
+	send -i $g_ifrHost "$message";
+	expect -i $g_ifrHost -re {^.*.\n$};
+	puts "the ifr said $expect_out(buffer)";
+
+}
+
+proc myExpect {} {
+	global g_ifrHost;
+	expect -i $g_ifrHost -re {^.*.\n$};
+	puts "the ifr said $expect_out(buffer)";
+
+}
+proc checkError {} {
+	global g_myQuit;
+	global g_myError;
+	if {$g_myQuit || $g_myError} {
+		#exit i got an error
+		puts "error detected or quit"
+		puts "ABORTING";
+		sigint_handler;
+	}
+	puts "i done checked for errors";
+	puts "gmyquit is $g_myQuit";
+	puts "gmyerror is $g_myError";
+}
+
+proc setError {myvar} {
+	global g_myError;
+	set g_myError $myvar;
+	puts "g_myError changed to $g_myError";
+}
+
+proc setQuit {myvar} {
+	global g_myQuit;
+	set g_myQuit $myvar;
+	puts "g_myQuit changed to $g_myQuit";
+}
+
 
 #need to spawn the process globally so can refer to it in subprocess
 #will be handled with expect
-#spawn telnet "$g_ifrIp";
-#set g_ifrHost $spawn_id;
+puts $g_ifrIp;
+#fucking variable can't get to work with spawn therefore hardcode it
+#spawn telnet $g_ifrIp;
+spawn telnet 199.131.111.62 1234;
+set g_ifrHost $spawn_id;
 
 #the arduino serial looks just like a file
 #no need for expect
-#set arduino_serial [open $g_arduinoSerialPort r+];
-#fconfigure $arduino_serial -mode "9600,n,8,1";
-#fconfigure $arduino_serial -buffering none
+#set g_arduinoSerial [open $g_arduinoSerialPort r+];
+#fconfigure $g_arduinoSerial -mode "9600,n,8,1";
+#fconfigure $g_arduinoSerial -buffering none
 
 #the Timer is an egg timer
 #exports 2 function setTimer {timeInSeconds} and checkTimer
@@ -43,10 +93,13 @@ proc myGetTime {} {
 	clock format $thisTime -format %Y%m%d%H%M%S
 }
 
-set filename [myGetTime];
-set logFileName [concat $filename.txt];
-set logFile [open "$logFileName" w]
-puts $logFile [concat [myGetTime] "101080 battery test start"];
+proc openLogFile {} {
+	global g_logFile;
+	set theTimeIs [myGetTime];
+	set logFileName [concat $theTimeIs.txt];
+	set g_logFile [open "$logFileName" w]
+	puts $g_logFile [concat [myGetTime] "101080 battery test start"];
+}
 
 proc traceAdd {someText} {
 	global g_accumulator;
@@ -58,21 +111,36 @@ proc traceEmpty {} {
 	set g_accumulator "_";
 }
 
-puts $g_accumulator
-traceEmpty
-traceAdd "shome shitty medssage";
-traceAdd "and more shit:"
-puts $g_accumulator
-
 
 
 
 proc ifrInit {} {
+	global g_ifrHost;
+	after 1000;
+	send -i $g_ifrHost "*idn?\r";
+	after 1000;
+	puts "about to say expect";
+	expect -i $g_ifrHost -re {^.*.\n$};
+	puts "expect is done";
+	puts "the ifr buffer said $expect_out(buffer)";
+	puts ".............................";
+	puts "the ifr 0,string  said $expect_out(0,string)\n";
+	after 1000;
+	send -i $g_ifrHost "*idn?\r";
+	after 1000;
+
+	puts "about to say expect again";
+	expect -i $g_ifrHost -re {^.*.\n$};
+	puts "expect is done";
+	puts "..................................";
+	puts "here is what it buffer said after queriying again ";
+	puts "the ifr sid $expect_out(buffer)";
+
 	puts "\n"
-	puts "setting up the ifr\n"
+	puts "IFR ready for communications, any setup should have been manually"
 	#this can be ignored for now set the damn thing up manually
-	ifrSetRcvFreq; #DUT transmit frequency
-	ifrSetGenFreq; #DUT RCV Frequency
+	#ifrSetRcvFreq; #DUT transmit frequency
+	#ifrSetGenFreq; #DUT RCV Frequency
 	after 1000;
 }
 
@@ -99,12 +167,23 @@ proc ifrKeyRadio {} {
 
 proc ifrFreqError {} {
 	puts "checking freq error"
+	send -
 	#send ifr string
 	#if {expect_out(buffer)}
 	after 500;
 }
 
-proc ifrUnKeyRadio {} {
+proc ifrTxPower {} {
+	puts "checking tx power"
+	#take a reading
+	#mySend ":fetc:rf:anal:trip? dbm\r";
+	mySend "*idn?\r";
+	puts [myExpect];
+	#test its value
+	#logit
+}
+
+proc ifrUnkeyRadio {} {
 	puts "unkey radio"
 	after 500;
 }
@@ -127,12 +206,23 @@ proc ifrCheckSinad {} {
 proc txTest {} {
 	puts "performing transmit test"
 	ifrKeyRadio;
-	after 500;
-	ifrFreqError;
-	
+	#set timer for 6 sec
+	setTimer 2; 
+	#wait for 4 sec
 	after 1000;
-	ifrUnKeyRadio;
+	#take a measurement
+	#this function does the limit checking and logging
+	#ifrFreqError;
+	#only check for power initially
+	ifrTxPower;
+	#wait until timer expires
+	while {![checkTimer]} {
+	}
+	ifrUnkeyRadio;
+	#insert an error to test
+	checkError;
 }
+
 
 proc rxTest {} {
 	puts "performing Recive test"
@@ -181,11 +271,11 @@ puts "time to wait 5 sec: [time {timetest3}]"
 package require Expect
 
 proc sigint_handler {} {
-	puts "\n\n\n\nelapsed time"
-	puts "exiting gracefuly"
+	puts "\n\n\n\nelapsed time";
+	puts "exiting gracefuly";
 	#exit
-	abort
-	set ::looping false
+	abort;
+	set ::looping false;
 }
 
 trap sigint_handler SIGINT
@@ -196,17 +286,18 @@ trap sigint_handler SIGINT
 
 
 proc main {} {
-	ifrInit;
+	#establish comms with the IFR
+	global g_myQuit;
+	ifrInit; 
+
 
 	set x 0
-	while {$x < 2}	{
+	while {!$g_myQuit}	{
 		puts "\nStarting a cycle"
 	txTest;
 	rxTest;
 	idleTest;
 	puts "Cycle complete\n"
-
-	set x [expr {$x + 1}]
 	}	
 		puts "\n\n\n\nTest Complete\n\n"
 }
@@ -251,3 +342,11 @@ while {true} {
 	}
 }
 puts "done waitin gagain";
+
+#hot to use the trace file
+puts $g_accumulator
+traceEmpty
+traceAdd "shome shitty medssage";
+traceAdd "and more shit:"
+puts $g_accumulator
+
