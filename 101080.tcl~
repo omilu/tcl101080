@@ -1,9 +1,49 @@
 #!/usr/bin/tclsh
 package require Expect
 
+ proc csv:parse {line {sepa ,}} {
+     set lst [split $line $sepa]
+     set nlst {}
+     set l [llength $lst]
+     for {set i 0} {$i < $l} {incr i} {
+         if {[string index [lindex $lst $i] 0] == "\""} {
+            # start of a stringhttp://purl.org/thecliff/tcl/wiki/721.html
+            if {[string index [lindex $lst $i] end] == "\""} {
+               # check for completeness, on our way we repair double double quotes
+               set c1 [string range [lindex $lst $i] 1 end]
+               set n1 [regsub -all {""} $c1 {"} c2]
+               set n2 [regsub -all {"} $c2 {"} c3]
+               if {$n1 == $n2} {
+                  # string extents to next list element
+                  set new_el [join [lrange $lst $i [expr {$i + 1}]] $sepa]
+                  set lst [lreplace $lst $i [expr {$i + 1}] $new_el]
+                  incr i -1
+                  incr l -1
+                  continue
+                  } else {
+                  # we are done with this element
+                  lappend nlst [string range $c2 0 [expr {[string length $c2] - 2}]]
+                  continue
+                  }
+               } else {
+               # string extents to next list element
+               set new_el [join [lrange $lst $i [expr {$i + 1}]] $sepa]
+               set lst [lreplace $lst $i [expr {$i + 1}] $new_el]
+               incr i -1
+               incr l -1
+               continue
+               }
+            } else {
+            # the most simple case
+            lappend nlst [lindex $lst $i]
+            continue
+            }
+         }
+     return $nlst
+ }
 
 #todo
-#add a way to raise a signal so can quit async without having
+#add function to raise a signal to enable  quiting async without having
 #to poll
 
 #globals
@@ -20,6 +60,12 @@ set g_logFile empty;
 proc mySend {message} {
 	global g_ifrHost;
 	send -i $g_ifrHost "$message";
+	after 100
+	expect -i $g_ifrHost -re {....\n$};
+	#parse the returned csv
+	set myList [csv:parse $expect_out(buffer)];
+	#return the last item which is the data
+	return [lindex $myList [expr [llength $myList] - 1]]
 }
 
 proc myExpect {} {
@@ -174,8 +220,11 @@ proc ifrTxPower {} {
 	puts "checking tx power"
 	#take a reading
 	#mySend ":fetc:rf:anal:trip? dbm\r";
-	mySend "*idn?\r";
-	puts [myExpect];
+	set mytemp [mySend ":fetc:rf:anal:trip? dbm\r"];
+	puts "outside the function call"
+	puts "here is what the variable returned";
+	puts "$mytemp";
+	#puts [myExpect];
 	#test its value
 	#logit
 }
@@ -185,14 +234,41 @@ proc ifrUnkeyRadio {} {
 	after 500;
 }
 
+proc ifrTestPort {toggle} {
+	if {$toggle == on} {
+		mySend ":syst:conf:port:uut 15\r"
+	}
+	if {$toggle == off} {
+		mySend ":syst:conf:port:uut 0\r"
+	} else {
+		mySend ":syst:conf:port:uut 15\r"
+	}
+}
+
+proc ifrTestPortQuery {} {
+	return [mySend ":syst:conf:port:uut?\r"]
+}
+
 proc ifrGenOn {} {
-	puts "turn gen on"
-	after 500;
+	puts "turn ifr gen on"
+	#take a reading
+	set mytemp [mySend "rf:gen:enab On\r"];
+	puts "here is what the variable returned";
+	puts "$mytemp";
+	#puts [myExpect];
+	#test its value
+	#logit
 }
 
 proc ifrGenOff {} {
 	puts "turn gen off:"
-	after 500;
+	#take a reading
+	set mytemp [mySend "rf:gen:enab Off\r"];
+	puts "here is what the variable returned";
+	puts "$mytemp";
+	#puts [myExpect];
+	#test its value
+	#logit
 }
 
 proc ifrCheckSinad {} {
@@ -200,6 +276,38 @@ proc ifrCheckSinad {} {
 	after 500;
 }
 
+proc debugIfr {} {
+	ifrGenOn;
+	#set timer for 6 sec
+	setTimer 2; 
+	#wait for 4 sec
+	after 1000;
+	#take a measurement
+	#this function does the limit checking and logging
+	#ifrFreqError;
+	#only check for power initially
+	ifrTxPower;
+	#wait until timer expires
+	while {![checkTimer]} {
+	}
+	ifrGenOff;
+	#insert an error to test
+	after 1000;
+	puts [ifrTestPortQuery];
+	after 500;
+	puts "enable test port";
+	ifrTestPort on;
+	after 500;
+	puts "test the status of port";
+	puts [ifrTestPortQuery];
+	after 500;
+	puts "disable test port";
+	ifrTestPort off;
+	after 500;
+	puts "test the status of port";
+	puts [ifrTestPortQuery];
+
+}
 proc txTest {} {
 	puts "performing transmit test"
 	ifrKeyRadio;
@@ -291,7 +399,7 @@ proc main {} {
 	set x 0
 	while {!$g_myQuit}	{
 		puts "\nStarting a cycle"
-	txTest;
+	debugIfr;
 	rxTest;
 	idleTest;
 	puts "Cycle complete\n"
