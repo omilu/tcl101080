@@ -1,4 +1,15 @@
 #!/usr/bin/tclsh
+
+#global test conditions
+set g_txPower -33;
+set g_rxSensitivity -100;
+
+
+
+#todo
+#
+#add function to raise a signal to enable  quiting async without having
+#to poll
 package require Expect
 
  proc csv:parse {line {sepa ,}} {
@@ -42,9 +53,6 @@ package require Expect
      return $nlst
  }
 
-#todo
-#add function to raise a signal to enable  quiting async without having
-#to poll
 
 #globals
 set g_myTimer 0;
@@ -57,6 +65,10 @@ set g_myQuit false;
 set g_myError false;
 set g_logFile empty;
 
+#mySend message sends message to the ifr waits 100msec and captures
+#the entire response from the ifr
+#it then parses the return message and returns the last item
+#which is the returned data that was requested
 proc mySend {message} {
 	global g_ifrHost;
 	send -i $g_ifrHost "$message";
@@ -68,12 +80,16 @@ proc mySend {message} {
 	return [lindex $myList [expr [llength $myList] - 1]]
 }
 
+#not useed
 proc myExpect {} {
 	global g_ifrHost;
 	expect -i $g_ifrHost -re {^.*.\n$};
 	puts "the ifr said $expect_out(buffer)";
 
 }
+
+#polls error or quit if either gos to the signal handler to exit
+#gracefuuly
 proc checkError {} {
 	global g_myQuit;
 	global g_myError;
@@ -83,9 +99,6 @@ proc checkError {} {
 		puts "ABORTING";
 		sigint_handler;
 	}
-	puts "i done checked for errors";
-	puts "gmyquit is $g_myQuit";
-	puts "gmyerror is $g_myError";
 }
 
 proc setError {myvar} {
@@ -159,18 +172,18 @@ proc traceEmpty {} {
 
 proc ifrInit {} {
 	global g_ifrHost;
-	after 1000;
+	after 100;
 	send -i $g_ifrHost "*idn?\r";
-	after 1000;
+	after 100;
 	puts "about to say expect";
 	expect -i $g_ifrHost -re {^.*.\n$};
 	puts "expect is done";
 	puts "the ifr buffer said $expect_out(buffer)";
 	puts ".............................";
 	puts "the ifr 0,string  said $expect_out(0,string)\n";
-	after 1000;
+	after 100;
 	send -i $g_ifrHost "*idn?\r";
-	after 1000;
+	after 100;
 
 	puts "about to say expect again";
 	expect -i $g_ifrHost -re {^.*.\n$};
@@ -184,7 +197,7 @@ proc ifrInit {} {
 	#this can be ignored for now set the damn thing up manually
 	#ifrSetRcvFreq; #DUT transmit frequency
 	#ifrSetGenFreq; #DUT RCV Frequency
-	after 1000;
+	after 100;
 }
 
 proc abort {}	{
@@ -224,6 +237,7 @@ proc ifrTxPower {} {
 	puts "outside the function call"
 	puts "here is what the variable returned";
 	puts "$mytemp";
+	return $mytemp;
 	#puts [myExpect];
 	#test its value
 	#logit
@@ -278,6 +292,7 @@ proc ifrCheckSinad {} {
 
 proc debugIfr {} {
 	ifrGenOn;
+	global g_txPower;
 	#set timer for 6 sec
 	setTimer 2; 
 	#wait for 4 sec
@@ -286,27 +301,16 @@ proc debugIfr {} {
 	#this function does the limit checking and logging
 	#ifrFreqError;
 	#only check for power initially
-	ifrTxPower;
+	
+	if {[ifrTxPower] > g_txPower} {
+		puts "power is good";
+	} else {
+		puts "power is bad";
+	}
 	#wait until timer expires
 	while {![checkTimer]} {
 	}
 	ifrGenOff;
-	#insert an error to test
-	after 1000;
-	puts [ifrTestPortQuery];
-	after 500;
-	puts "enable test port";
-	ifrTestPort on;
-	after 500;
-	puts "test the status of port";
-	puts [ifrTestPortQuery];
-	after 500;
-	puts "disable test port";
-	ifrTestPort off;
-	after 500;
-	puts "test the status of port";
-	puts [ifrTestPortQuery];
-
 }
 proc txTest {} {
 	puts "performing transmit test"
