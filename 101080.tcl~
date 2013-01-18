@@ -462,8 +462,8 @@ proc sigint_handler {} {
 	puts $g_startTime;
 	puts $g_endTime;
 	traceAdd {$gstartTime};
-#	traceAdd $g_endTime;
-#	traceAdd "testcomplete";
+	traceAdd {$g_endTime};
+	traceAdd {"testcomplete"};
 	puts "[expr $g_endTime - $g_startTime] seconds";
 	set ::looping false;
 	abort

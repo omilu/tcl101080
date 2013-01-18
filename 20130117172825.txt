@@ -1,3 +1,0 @@
-20130117172825 101080 battery test start
-_20130117172825 start time
-_2234375 microseconds per iteration2234375 microseconds per iteration2125000 microseconds per iteration
