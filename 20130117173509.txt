@@ -1,0 +1,2 @@
+20130117173509 101080 battery test start
+_20130117173510 start time

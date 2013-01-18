@@ -3,11 +3,19 @@
 #global test conditions
 set g_txPower -33;
 set g_rxSensitivity -100;
+set g_txTime 2;
+set g_rxTime 2;
+set g_idleTime 2; #in seconds
+set g_ifrSettleTime 1000; #in useconds length to wait to meas
+set g_ifrResponseTime 100; #in useconds legnth to wait for expect response
+
 
 
 
 #todo
-#
+#ammend mySend so that it includes a parameter to specify the return data
+#position, right now it defaults to the last, but sinad data is not in
+#last postion
 #add function to raise a signal to enable  quiting async without having
 #to poll
 package require Expect
@@ -64,20 +72,27 @@ set g_accumulator empty;
 set g_myQuit false;
 set g_myError false;
 set g_logFile empty;
+global g_startTime;
+global g_endTime;
 
 #mySend message sends message to the ifr waits 100msec and captures
 #the entire response from the ifr
 #it then parses the return message and returns the last item
 #which is the returned data that was requested
-proc mySend {message} {
+#this needs to be changed becuase not all data is in last position
+#for instance sinad, therefore need a  paramter to specify at what position
+#position is the position away from last, ie position zero is last position
+#one is 2nd from last, default is zero so can call without position arg
+proc mySend {message {position 0}} {
 	global g_ifrHost;
+	global g_ifrResponseTime;
 	send -i $g_ifrHost "$message";
-	after 100
+	after $g_ifrResponseTime;
 	expect -i $g_ifrHost -re {....\n$};
 	#parse the returned csv
 	set myList [csv:parse $expect_out(buffer)];
 	#return the last item which is the data
-	return [lindex $myList [expr [llength $myList] - 1]]
+	return [lindex $myList [expr [llength $myList] - [expr 1 + $position]]];
 }
 
 #not useed
@@ -155,13 +170,24 @@ proc openLogFile {} {
 	set logFileName [concat $theTimeIs.txt];
 	set g_logFile [open "$logFileName" w]
 	puts $g_logFile [concat [myGetTime] "101080 battery test start"];
+	puts "LOg file opened $g_logFile";
+}
+
+
+#writes to the file and empties the trace
+proc traceAppendToFile {} {
+	global g_accumulator;
+	global g_logFile;
+	puts "here is where it breaks";
+	puts $g_logFile "$g_accumulator";
+	puts "after it breaks"
+	traceEmpty
 }
 
 proc traceAdd {someText} {
 	global g_accumulator;
 	append g_accumulator $someText;
 }
-
 proc traceEmpty {} {
 	global g_accumulator;
 	set g_accumulator "_";
@@ -172,18 +198,19 @@ proc traceEmpty {} {
 
 proc ifrInit {} {
 	global g_ifrHost;
-	after 100;
+	global g_ifrResponseTime
+	after $g_ifrResponseTime;
 	send -i $g_ifrHost "*idn?\r";
-	after 100;
+	after $g_ifrResponseTime;
 	puts "about to say expect";
 	expect -i $g_ifrHost -re {^.*.\n$};
 	puts "expect is done";
 	puts "the ifr buffer said $expect_out(buffer)";
 	puts ".............................";
 	puts "the ifr 0,string  said $expect_out(0,string)\n";
-	after 100;
+	after $g_ifrResponseTime;
 	send -i $g_ifrHost "*idn?\r";
-	after 100;
+	after $g_ifrResponseTime;
 
 	puts "about to say expect again";
 	expect -i $g_ifrHost -re {^.*.\n$};
@@ -208,17 +235,20 @@ proc abort {}	{
 
 proc ifrSetRcvFreq {} {
 	puts "setting RCVR frequency"
-	after 500;
+	global g_ifrResponseTime;
+	after $g_ifrResponseTime;
 }
 
 proc ifrSetGenFreq {} {
 	puts "setting RF generator frequency"
-	after 500;
+	global g_ifrResponseTime;
+	after $g_ifrResponseTime;
 }
 
 proc ifrKeyRadio {} {
 	puts "keying radio"
-	after 500;
+	global g_ifrResponseTime;
+	after $g_ifrResponseTime;
 }
 
 proc ifrFreqError {} {
@@ -226,7 +256,8 @@ proc ifrFreqError {} {
 	send -
 	#send ifr string
 	#if {expect_out(buffer)}
-	after 500;
+	global g_ifrResponseTime;
+	after $g_ifrResponseTime;
 }
 
 proc ifrTxPower {} {
@@ -245,7 +276,8 @@ proc ifrTxPower {} {
 
 proc ifrUnkeyRadio {} {
 	puts "unkey radio"
-	after 500;
+	global g_ifrResponseTime;
+	after $g_ifrResponseTime;
 }
 
 proc ifrTestPort {toggle} {
@@ -287,22 +319,33 @@ proc ifrGenOff {} {
 
 proc ifrCheckSinad {} {
 	puts "checking sinad"
-	after 500;
+	#take a reading, but must send position 1 to grab second from
+	#last data
+	set mytemp [mySend ":fetc:af:anal:sin?\r" 1];
+	puts "outside the function call"
+	puts "here is what the variable returned";
+	puts "$mytemp";
+	return $mytemp;
+	#puts [myExpect];
+	#test its value
+	#logit
 }
 
 proc debugIfr {} {
 	ifrGenOn;
 	global g_txPower;
+	global g_ifrSettleTime;
+	global g_txTime;
 	#set timer for 6 sec
-	setTimer 2; 
+	setTimer $g_txTime; 
 	#wait for 4 sec
-	after 1000;
+	after $g_ifrSettleTime;
 	#take a measurement
 	#this function does the limit checking and logging
 	#ifrFreqError;
 	#only check for power initially
 	
-	if {[ifrTxPower] > g_txPower} {
+	if {[set myvar [ifrTxPower]] > $g_txPower} {
 		puts "power is good";
 	} else {
 		puts "power is bad";
@@ -310,20 +353,27 @@ proc debugIfr {} {
 	#wait until timer expires
 	while {![checkTimer]} {
 	}
-	ifrGenOff;
+	ifrgenoff;
 }
 proc txTest {} {
 	puts "performing transmit test"
 	ifrKeyRadio;
+	global g_txPower;
+	global g_txTime;
+	global g_ifrSettleTime;
 	#set timer for 6 sec
-	setTimer 2; 
+	setTimer $g_txTime; 
 	#wait for 4 sec
-	after 1000;
+	after $g_ifrSettleTime;
 	#take a measurement
 	#this function does the limit checking and logging
-	#ifrFreqError;
+	#ifrfreqerror;
 	#only check for power initially
-	ifrTxPower;
+	if {[set myvar [ifrTxPower]] > $g_txPower} {
+		puts "power is good";
+	} else {
+		puts "power is bad";
+	}
 	#wait until timer expires
 	while {![checkTimer]} {
 	}
@@ -336,28 +386,51 @@ proc txTest {} {
 proc rxTest {} {
 	puts "performing Recive test"
 	ifrGenOn;
-	after 500;
-	ifrCheckSinad;
+	global g_rxSensitivity;
+	global g_rxTime;
+	global g_ifrSettleTime;
+	#set timer for 6 sec
+	setTimer $g_rxTime; 
+	#wait for 4 sec
+	after $g_ifrSettleTime;
+	#take a measurement
+	#this function does the limit checking and logging
+	#ifrFreqError;
+	#only check for power initially
+	
+	if {[ifrCheckSinad] > $g_rxSensitivity} {
+		puts "sinad is good";
+	} else {
+		puts "sinad is bad";
+	}
+	#wait until timer expires
+	while {![checkTimer]} {
+	}
 }
 
 proc idleTest {} {
 	puts "idling";
-	after 500;
+	global g_idleTime;
+	global g_ifrSettleTime;
+	#set timer for 6 sec
+	setTimer $g_idleTime; 
+	#wait for 4 sec
+	after $g_ifrSettleTime;
+	#take a measurement
+	#log shit and measrue from the arduinoo also
+	#query the arduino
+#log shit here and query the arduino
+	#wait until timer expires
+	while {![checkTimer]} {
+	}
+	ifrUnkeyRadio;
+	#insert an error to test
+	checkError;
+	global g_ifrResponseTime;
+	after $g_ifrResponseTime;
 }
 
 
-
-
-
-proc ifrRunTest {} {
-	puts "running test\n"
-	after 1000;
-}
-
-proc ifrClean {} {
-	puts "test done\n"
-	after 1000;
-}
 
 
 
@@ -383,8 +456,17 @@ proc sigint_handler {} {
 	puts "\n\n\n\nelapsed time";
 	puts "exiting gracefuly";
 	#exit
-	abort;
+ 	global g_endTime;
+	global g_startTime;
+	set g_endTime [myGetTime];
+	puts $g_startTime;
+	puts $g_endTime;
+	traceAdd {$gstartTime};
+#	traceAdd $g_endTime;
+#	traceAdd "testcomplete";
+	puts "[expr $g_endTime - $g_startTime] seconds";
 	set ::looping false;
+	abort
 }
 
 trap sigint_handler SIGINT
@@ -397,18 +479,43 @@ trap sigint_handler SIGINT
 proc main {} {
 	#establish comms with the IFR
 	global g_myQuit;
+	global g_startTime;
+	openLogFile;
+	traceEmpty;
 	ifrInit; 
+
+	
+	set g_startTime [myGetTime];
+	traceAdd "$g_startTime start time";
 
 
 	set x 0
 	while {!$g_myQuit}	{
 		puts "\nStarting a cycle"
-	debugIfr;
-	rxTest;
-	idleTest;
-	puts "Cycle complete\n"
+			#debugIfr;
+		#dump trace to file
+		traceAppendToFile;		
+		puts "\n";
+		set myVar [time {idleTest}];
+		puts "time for idleTest: $myVar";
+		traceAdd $myVar;
+		puts "\n";
+		set myVar [time {txTest}];
+		traceAdd $myVar;
+		puts "time for txTest: $myVar";
+		puts "\n";
+		set myVar [time {rxTest}];
+		traceAdd $myVar;
+		puts "time for rxTest: $myVar";
+		puts "\n";
+		puts "Cycle complete\n"
 	}	
-		puts "\n\n\n\nTest Complete\n\n"
+
+	puts "\n\n\n\nTest Complete\n\n"
+	#go to clean up
+	sigint_handler;
+	
+
 }
 
 main;
