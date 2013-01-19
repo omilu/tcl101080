@@ -1,17 +1,5 @@
 #!/usr/bin/tclsh
 
-#global test conditions
-set g_txPower -33;
-set g_rxSensitivity -100;
-set g_txTime 2;
-set g_rxTime 2;
-set g_idleTime 2; #in seconds
-set g_ifrSettleTime 1000; #in useconds length to wait to meas
-set g_ifrResponseTime 100; #in useconds legnth to wait for expect response
-
-
-
-
 #todo
 #ammend mySend so that it includes a parameter to specify the return data
 #position, right now it defaults to the last, but sinad data is not in
@@ -63,17 +51,44 @@ package require Expect
 
 
 #globals
-set g_myTimer 0;
-set g_systemTime [clock seconds];
-set g_ifrIp "199.131.111.62 1234";
-set g_arduinoSerialPort "/dev/ttyS18";
-set g_state on;
-set g_accumulator empty;
-set g_myQuit false;
-set g_myError false;
-set g_logFile empty;
-global g_startTime;
-global g_endTime;
+
+proc init_globals {} {
+ 	global g_globals;
+	set g_globals(g_myTimer) 0;
+	set g_globals(g_systemTime) [clock seconds];
+	set g_globals(g_ifrIp) "199.131.111.62 1234";
+	set g_globals(g_arduinoSerialPort) "/dev/ttyS18";
+	set g_globals(g_state) on;
+	set g_globals(g_accumulator) 0 ;
+	set g_globals(g_myQuit) false;
+	set g_globals(g_myError) false;
+	set g_globals(g_myQuitMessage) 0;
+	set g_globals(g_logFile) empty;
+	set g_globals(g_startTime) 0;
+	set g_globals(g_endTime) 0;
+	set g_globals(g_quit) 0;
+	set g_globals(g_error) 0;
+	set g_globals(g_currentProcedure) 0;
+	set g_globals(g_txPower) -33;
+	set g_globals(g_rxSensitivity) 30;
+	set g_globals(g_txTime) 2;
+	set g_globals(g_rxTime) 2;
+	set g_globals(g_idleTime) 2; #in seconds
+	set g_globals(g_ifrSettleTime) 1000; #in useconds length to wait to meas
+	set g_globals(g_ifrResponseTime) 100; #in useconds legnth to wait for expect response
+}
+
+proc init_accumulator {} {
+	global g_accumulator;
+	set g_accumulator(idleTime) 0;
+	set g_accumulator(keyTime) 0;
+	set g_accumulator(rxTime) 0;
+	set g_accumulator(sens) 0;
+	set g_accumulator(txPower) 0;
+	set g_accumulator(rxBattery) 0;
+	set g_accumulator(txBattery) 0;
+	set g_accumulator(idleBattery) 0;
+}
 
 #mySend message sends message to the ifr waits 100msec and captures
 #the entire response from the ifr
@@ -84,11 +99,10 @@ global g_endTime;
 #position is the position away from last, ie position zero is last position
 #one is 2nd from last, default is zero so can call without position arg
 proc mySend {message {position 0}} {
-	global g_ifrHost;
-	global g_ifrResponseTime;
-	send -i $g_ifrHost "$message";
-	after $g_ifrResponseTime;
-	expect -i $g_ifrHost -re {....\n$};
+	global g_globals;
+	send -i $g_globals(g_ifrHost) "$message";
+	after $g_globals(g_ifrResponseTime);
+	expect -i $g_globals(g_ifrHost) -re {....\n$};
 	#parse the returned csv
 	set myList [csv:parse $expect_out(buffer)];
 	#return the last item which is the data
@@ -97,8 +111,8 @@ proc mySend {message {position 0}} {
 
 #not useed
 proc myExpect {} {
-	global g_ifrHost;
-	expect -i $g_ifrHost -re {^.*.\n$};
+	global g_globals;
+	expect -i $g_globals(g_ifrHost) -re {^.*.\n$};
 	puts "the ifr said $expect_out(buffer)";
 
 }
@@ -106,36 +120,42 @@ proc myExpect {} {
 #polls error or quit if either gos to the signal handler to exit
 #gracefuuly
 proc checkError {} {
-	global g_myQuit;
-	global g_myError;
-	if {$g_myQuit || $g_myError} {
+	global g_globals;
+	if {$g_globals(g_myError)} {
 		#exit i got an error
-		puts "error detected or quit"
+		puts "error detected"
 		puts "ABORTING";
 		sigint_handler;
 	}
 }
 
-proc setError {myvar} {
-	global g_myError;
-	set g_myError $myvar;
-	puts "g_myError changed to $g_myError";
+proc currentProc {} {
+	set myShit [info frame -1];
+	set myOther [lindex $myShit [expr [lsearch $myShit "proc"] + 1]];
+	puts $myOther;
+	return $myOther;
 }
 
-proc setQuit {myvar} {
-	global g_myQuit;
-	set g_myQuit $myvar;
-	puts "g_myQuit changed to $g_myQuit";
+proc setError {myvar} {
+	global g_globals;
+	set g_globals(g_myError) $myvar;
+	puts "g_myError changed to $g_globals(g_myError)";
+}
+
+proc setQuit {myvar myMessage} {
+	global g_globals;
+	set g_globals(g_myQuit) $myvar;
+	set g_globals(g_myQuitMessage) $myMessage;
+	puts "g_myQuit changed to $g_globals(g_myQuit)";
 }
 
 
 #need to spawn the process globally so can refer to it in subprocess
 #will be handled with expect
-puts $g_ifrIp;
 #fucking variable can't get to work with spawn therefore hardcode it
 #spawn telnet $g_ifrIp;
 spawn telnet 199.131.111.62 1234;
-set g_ifrHost $spawn_id;
+set g_globals(g_ifrHost) $spawn_id;
 
 #the arduino serial looks just like a file
 #no need for expect
@@ -147,14 +167,14 @@ set g_ifrHost $spawn_id;
 #exports 2 function setTimer {timeInSeconds} and checkTimer
 #setTimer sets the global g_myTimer
 proc setTimer {timeInSeconds} {
-	global g_myTimer;
-	set g_myTimer [expr {[clock milliseconds] + [expr $timeInSeconds * 1000]}];
+	global g_globals;
+	set g_globals(g_myTimer) [expr {[clock milliseconds] + [expr $timeInSeconds * 1000]}];
 }
 
 #checks g_myTimer returns true if expired false else
 proc checkTimer {} {
-	global g_myTimer;
-	expr {[clock milliseconds] > $g_myTimer};
+	global g_globals;
+	expr {[clock milliseconds] > $g_globals(g_myTimer)};
 }
 
 
@@ -164,56 +184,84 @@ proc myGetTime {} {
 	clock format $thisTime -format %Y%m%d%H%M%S
 }
 
+proc myGetSeconds {} {
+	set thisTime [clock seconds];
+	return $thisTime;
+}
+
 proc openLogFile {} {
-	global g_logFile;
+	global g_globals;
 	set theTimeIs [myGetTime];
 	set logFileName [concat $theTimeIs.txt];
-	set g_logFile [open "$logFileName" w]
-	puts $g_logFile [concat [myGetTime] "101080 battery test start"];
-	puts "LOg file opened $g_logFile";
+	set g_globals(g_logFile) [open "$logFileName" w]
+	puts $g_globals(g_logFile) [concat [myGetTime] "101080 battery test start"];
+	puts "LOg file opened $g_globals(g_logFile)";
 }
 
 
+proc traceWriteTitlesToFile {} {
+	global g_accumulator;
+	global g_globals;
+	set myList [array get g_accumulator];
+	for {set i 0} {$i < [llength $myList]} {set i [expr $i + 2]} {
+		puts -nonewline $g_globals(g_logFile) "[lindex $myList $i]";
+		if {$i < [expr [llength $myList] - 3]} {
+			puts -nonewline $g_globals(g_logFile) ", ";
+		} else {
+			puts $g_globals(g_logFile) "";
+		}
+
+	}
+	puts $g_globals(g_logFile) "start";
+}
 #writes to the file and empties the trace
 proc traceAppendToFile {} {
 	global g_accumulator;
-	global g_logFile;
-	puts "here is where it breaks";
-	puts $g_logFile "$g_accumulator";
-	puts "after it breaks"
+	global g_globals;
+	foreach i [array names g_accumulator] {
+		puts -nonewline $g_globals(g_logFile) "$g_accumulator($i)\t";
+	}
+	puts $g_globals(g_logFile) "";
 	traceEmpty
 }
 
-proc traceAdd {someText} {
+proc traceAdd {someKey someValue} {
 	global g_accumulator;
-	append g_accumulator $someText;
+	if {![info exists g_accumulator($someKey)]} {
+			puts "tried to add an Invalid key";
+			return;
+	}
+	set g_accumulator($someKey) $someValue;
 }
+
 proc traceEmpty {} {
 	global g_accumulator;
-	set g_accumulator "_";
+	foreach i [array names g_accumulator] {
+		set g_accumulator($i) 0;
+	}
 }
 
 
 
 
 proc ifrInit {} {
-	global g_ifrHost;
-	global g_ifrResponseTime
-	after $g_ifrResponseTime;
-	send -i $g_ifrHost "*idn?\r";
-	after $g_ifrResponseTime;
+	global g_accumulator;
+	global g_globals;
+	after $g_globals(g_ifrResponseTime);
+	send -i $g_globals(g_ifrHost) "*idn?\r";
+	after $g_globals(g_ifrResponseTime);
 	puts "about to say expect";
-	expect -i $g_ifrHost -re {^.*.\n$};
+	expect -i $g_globals(g_ifrHost) -re {^.*.\n$};
 	puts "expect is done";
 	puts "the ifr buffer said $expect_out(buffer)";
 	puts ".............................";
 	puts "the ifr 0,string  said $expect_out(0,string)\n";
-	after $g_ifrResponseTime;
-	send -i $g_ifrHost "*idn?\r";
-	after $g_ifrResponseTime;
+	after $g_globals(g_ifrResponseTime);
+	send -i $g_globals(g_ifrHost) "*idn?\r";
+	after $g_globals(g_ifrResponseTime);
 
 	puts "about to say expect again";
-	expect -i $g_ifrHost -re {^.*.\n$};
+	expect -i $g_globals(g_ifrHost) -re {^.*.\n$};
 	puts "expect is done";
 	puts "..................................";
 	puts "here is what it buffer said after queriying again ";
@@ -235,29 +283,28 @@ proc abort {}	{
 
 proc ifrSetRcvFreq {} {
 	puts "setting RCVR frequency"
-	global g_ifrResponseTime;
-	after $g_ifrResponseTime;
+	global g_globals;
+	after $g_globals(g_ifrResponseTime);
 }
 
 proc ifrSetGenFreq {} {
 	puts "setting RF generator frequency"
-	global g_ifrResponseTime;
-	after $g_ifrResponseTime;
+	global g_globals;
+	after $g_globals(g_ifrResponseTime);
 }
 
 proc ifrKeyRadio {} {
 	puts "keying radio"
-	global g_ifrResponseTime;
-	after $g_ifrResponseTime;
+	global g_globals;
+	after $g_globals(g_ifrResponseTime);
 }
 
 proc ifrFreqError {} {
+	global g_globals;
 	puts "checking freq error"
-	send -
 	#send ifr string
 	#if {expect_out(buffer)}
-	global g_ifrResponseTime;
-	after $g_ifrResponseTime;
+	after $g_globals(g_ifrResponseTime);
 }
 
 proc ifrTxPower {} {
@@ -276,8 +323,8 @@ proc ifrTxPower {} {
 
 proc ifrUnkeyRadio {} {
 	puts "unkey radio"
-	global g_ifrResponseTime;
-	after $g_ifrResponseTime;
+	global g_globals;
+	after $g_globals(g_ifrResponseTime);
 }
 
 proc ifrTestPort {toggle} {
@@ -333,19 +380,17 @@ proc ifrCheckSinad {} {
 
 proc debugIfr {} {
 	ifrGenOn;
-	global g_txPower;
-	global g_ifrSettleTime;
-	global g_txTime;
+	global g_globals;
 	#set timer for 6 sec
-	setTimer $g_txTime; 
+	setTimer $g_globals(g_txTime); 
 	#wait for 4 sec
-	after $g_ifrSettleTime;
+	after $g_globals(g_ifrSettleTime);
 	#take a measurement
 	#this function does the limit checking and logging
 	#ifrFreqError;
 	#only check for power initially
 	
-	if {[set myvar [ifrTxPower]] > $g_txPower} {
+	if {[set myvar [ifrTxPower]] > $g_globals(g_txPower)} {
 		puts "power is good";
 	} else {
 		puts "power is bad";
@@ -358,18 +403,16 @@ proc debugIfr {} {
 proc txTest {} {
 	puts "performing transmit test"
 	ifrKeyRadio;
-	global g_txPower;
-	global g_txTime;
-	global g_ifrSettleTime;
+	global g_globals;
 	#set timer for 6 sec
-	setTimer $g_txTime; 
+	setTimer $g_globals(g_txTime); 
 	#wait for 4 sec
-	after $g_ifrSettleTime;
+	after $g_globals(g_ifrSettleTime);
 	#take a measurement
 	#this function does the limit checking and logging
 	#ifrfreqerror;
 	#only check for power initially
-	if {[set myvar [ifrTxPower]] > $g_txPower} {
+	if {[set myvar [ifrTxPower]] > $g_globals(g_txPower)} {
 		puts "power is good";
 	} else {
 		puts "power is bad";
@@ -385,37 +428,36 @@ proc txTest {} {
 
 proc rxTest {} {
 	puts "performing Recive test"
-	ifrGenOn;
-	global g_rxSensitivity;
-	global g_rxTime;
-	global g_ifrSettleTime;
+	#ifrGenOn;
+	global g_globals;
 	#set timer for 6 sec
-	setTimer $g_rxTime; 
+	setTimer $g_globals(g_rxTime); 
 	#wait for 4 sec
-	after $g_ifrSettleTime;
+	after $g_globals(g_ifrSettleTime);
 	#take a measurement
 	#this function does the limit checking and logging
 	#ifrFreqError;
 	#only check for power initially
 	
-	if {[ifrCheckSinad] > $g_rxSensitivity} {
+	if {[set myResult [ifrCheckSinad]] > $g_globals(g_rxSensitivity)} {
 		puts "sinad is good";
 	} else {
 		puts "sinad is bad";
+		setQuit true "Bad Sinad";
 	}
 	#wait until timer expires
 	while {![checkTimer]} {
 	}
+        set g_globals(g_currentProcedure) [currentProc];
 }
 
 proc idleTest {} {
 	puts "idling";
-	global g_idleTime;
-	global g_ifrSettleTime;
+	global g_globals;
 	#set timer for 6 sec
-	setTimer $g_idleTime; 
+	setTimer $g_globals(g_idleTime); 
 	#wait for 4 sec
-	after $g_ifrSettleTime;
+	after $g_globals(g_ifrSettleTime);
 	#take a measurement
 	#log shit and measrue from the arduinoo also
 	#query the arduino
@@ -426,8 +468,7 @@ proc idleTest {} {
 	ifrUnkeyRadio;
 	#insert an error to test
 	checkError;
-	global g_ifrResponseTime;
-	after $g_ifrResponseTime;
+	after $g_globals(g_ifrResponseTime);
 }
 
 
@@ -456,15 +497,17 @@ proc sigint_handler {} {
 	puts "\n\n\n\nelapsed time";
 	puts "exiting gracefuly";
 	#exit
- 	global g_endTime;
-	global g_startTime;
-	set g_endTime [myGetTime];
-	puts $g_startTime;
-	puts $g_endTime;
-	traceAdd {$gstartTime};
-	traceAdd {$g_endTime};
-	traceAdd {"testcomplete"};
-	puts "[expr $g_endTime - $g_startTime] seconds";
+	global g_globals;
+	set g_globals(g_endTime) [myGetTime];
+	puts $g_globals(g_startTime);
+	puts $g_globals(g_endTime);
+	puts $g_globals(g_logFile) "";
+	puts $g_globals(g_logFile) "";
+        puts $g_globals(g_logFile) "$g_globals(g_currentProcedure)\t died";
+        puts $g_globals(g_logFile) "$g_globals(g_myQuitMessage)\t died";
+	puts $g_globals(g_logFile) "$g_globals(g_startTime)\t startTime";
+	puts $g_globals(g_logFile) "$g_globals(g_endTime)\t endTime";
+	puts $g_globals(g_logFile) "[expr $g_globals(g_endTime) - $g_globals(g_startTime)] seconds duration of test";
 	set ::looping false;
 	abort
 }
@@ -477,38 +520,45 @@ trap sigint_handler SIGINT
 
 
 proc main {} {
+	init_accumulator;
+	init_globals;
 	#establish comms with the IFR
-	global g_myQuit;
-	global g_startTime;
+	global g_globals;
 	openLogFile;
 	traceEmpty;
+	traceWriteTitlesToFile;
 	ifrInit; 
 
 	
-	set g_startTime [myGetTime];
-	traceAdd "$g_startTime start time";
+	set g_globals(g_startTime) [myGetTime];
+	puts $g_globals(g_logFile) {$g_globals(g_startTime)};
 
 
 	set x 0
-	while {!$g_myQuit}	{
+	while {!$g_globals(g_myQuit) && !$g_globals(g_myError)}	{
 		puts "\nStarting a cycle"
 			#debugIfr;
 		#dump trace to file
 		traceAppendToFile;		
 		puts "\n";
-		set myVar [time {idleTest}];
+		set myVar [lindex [time {idleTest}] 0];
 		puts "time for idleTest: $myVar";
-		traceAdd $myVar;
+		traceAdd idleTime $myVar;
 		puts "\n";
-		set myVar [time {txTest}];
-		traceAdd $myVar;
+		set myVar [lindex [time {txTest}] 0];
+		traceAdd txTime $myVar;
 		puts "time for txTest: $myVar";
 		puts "\n";
-		set myVar [time {rxTest}];
-		traceAdd $myVar;
+		set myVar [lindex [time {rxTest}] 0];
+		traceAdd rxTime $myVar;
 		puts "time for rxTest: $myVar";
 		puts "\n";
 		puts "Cycle complete\n"
+		#setQuit true "a test message to try and quit";
+		puts $g_globals(g_myQuit);
+		puts $g_globals(g_myError);
+		puts "the current procdure $g_globals(g_currentProcedure)";
+		checkError;
 	}	
 
 	puts "\n\n\n\nTest Complete\n\n"
@@ -522,8 +572,6 @@ main;
 
 #troubleshooting and examples
 #declaring globals
-puts $g_ifrIp;
-puts $g_state;
 
 #passing a global to a function with upvar
 proc glotest {g_state} {
@@ -559,10 +607,4 @@ while {true} {
 }
 puts "done waitin gagain";
 
-#hot to use the trace file
-puts $g_accumulator
-traceEmpty
-traceAdd "shome shitty medssage";
-traceAdd "and more shit:"
-puts $g_accumulator
 
