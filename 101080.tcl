@@ -69,8 +69,8 @@ proc init_globals {} {
 	set g_globals(g_quit) 0;
 	set g_globals(g_error) 0;
 	set g_globals(g_currentProcedure) 0;
-	set g_globals(g_txPower) -33;
-	set g_globals(g_rxSensitivity) 30;
+	set g_globals(g_txPower) 25;
+	set g_globals(g_rxSensitivity) -30;
 	set g_globals(g_txTime) 2;
 	set g_globals(g_rxTime) 2;
 	set g_globals(g_idleTime) 2; #in seconds
@@ -81,7 +81,7 @@ proc init_globals {} {
 proc init_accumulator {} {
 	global g_accumulator;
 	set g_accumulator(idleTime) 0;
-	set g_accumulator(keyTime) 0;
+	set g_accumulator(txTime) 0;
 	set g_accumulator(rxTime) 0;
 	set g_accumulator(sens) 0;
 	set g_accumulator(txPower) 0;
@@ -255,18 +255,6 @@ proc ifrInit {} {
 	puts "expect is done";
 	puts "the ifr buffer said $expect_out(buffer)";
 	puts ".............................";
-	puts "the ifr 0,string  said $expect_out(0,string)\n";
-	after $g_globals(g_ifrResponseTime);
-	send -i $g_globals(g_ifrHost) "*idn?\r";
-	after $g_globals(g_ifrResponseTime);
-
-	puts "about to say expect again";
-	expect -i $g_globals(g_ifrHost) -re {^.*.\n$};
-	puts "expect is done";
-	puts "..................................";
-	puts "here is what it buffer said after queriying again ";
-	puts "the ifr sid $expect_out(buffer)";
-
 	puts "\n"
 	puts "IFR ready for communications, any setup should have been manually"
 	#this can be ignored for now set the damn thing up manually
@@ -296,6 +284,9 @@ proc ifrSetGenFreq {} {
 proc ifrKeyRadio {} {
 	puts "keying radio"
 	global g_globals;
+	set mytemp [mySend ":syst:conf:port:uut 0\r"];
+	puts "here is what the variable returned";
+	puts "$mytemp";
 	after $g_globals(g_ifrResponseTime);
 }
 
@@ -324,7 +315,9 @@ proc ifrTxPower {} {
 proc ifrUnkeyRadio {} {
 	puts "unkey radio"
 	global g_globals;
+	set mytemp [mySend ":syst:conf:port:uut 15\r"];
 	after $g_globals(g_ifrResponseTime);
+
 }
 
 proc ifrTestPort {toggle} {
@@ -368,7 +361,7 @@ proc ifrCheckSinad {} {
 	puts "checking sinad"
 	#take a reading, but must send position 1 to grab second from
 	#last data
-	set mytemp [mySend ":fetc:af:anal:sin?\r" 1];
+	set mytemp [mySend ":fetc:af:anal:sin?\r"];
 	puts "outside the function call"
 	puts "here is what the variable returned";
 	puts "$mytemp";
@@ -412,16 +405,20 @@ proc txTest {} {
 	#this function does the limit checking and logging
 	#ifrfreqerror;
 	#only check for power initially
-	if {[set myvar [ifrTxPower]] > $g_globals(g_txPower)} {
+	if {[set myVar [ifrTxPower]] > $g_globals(g_txPower)} {
 		puts "power is good";
 	} else {
 		puts "power is bad";
+		setQuit true "Power failed $g_globals(g_txPower)";
+		setError true
 	}
+	traceAdd txPower [string trim $myVar];
 	#wait until timer expires
 	while {![checkTimer]} {
 	}
 	ifrUnkeyRadio;
 	#insert an error to test
+        set g_globals(g_currentProcedure) [currentProc];
 	checkError;
 }
 
@@ -439,16 +436,20 @@ proc rxTest {} {
 	#ifrFreqError;
 	#only check for power initially
 	
-	if {[set myResult [ifrCheckSinad]] > $g_globals(g_rxSensitivity)} {
+	if {[set myVar [ifrCheckSinad]] > $g_globals(g_rxSensitivity)} {
 		puts "sinad is good";
 	} else {
 		puts "sinad is bad";
 		setQuit true "Bad Sinad";
+		setError true;
 	}
+	traceAdd sens [string trim $myVar];
+	#wait until timer expires
 	#wait until timer expires
 	while {![checkTimer]} {
 	}
         set g_globals(g_currentProcedure) [currentProc];
+	checkError;
 }
 
 proc idleTest {} {
@@ -461,11 +462,11 @@ proc idleTest {} {
 	#take a measurement
 	#log shit and measrue from the arduinoo also
 	#query the arduino
+	
 #log shit here and query the arduino
 	#wait until timer expires
 	while {![checkTimer]} {
 	}
-	ifrUnkeyRadio;
 	#insert an error to test
 	checkError;
 	after $g_globals(g_ifrResponseTime);
@@ -522,7 +523,6 @@ trap sigint_handler SIGINT
 proc main {} {
 	init_accumulator;
 	init_globals;
-	#establish comms with the IFR
 	global g_globals;
 	openLogFile;
 	traceEmpty;
@@ -555,8 +555,8 @@ proc main {} {
 		puts "\n";
 		puts "Cycle complete\n"
 		#setQuit true "a test message to try and quit";
-		puts $g_globals(g_myQuit);
-		puts $g_globals(g_myError);
+		puts "Quit = $g_globals(g_myQuit)";
+		puts "Error = $g_globals(g_myError)";
 		puts "the current procdure $g_globals(g_currentProcedure)";
 		checkError;
 	}	
