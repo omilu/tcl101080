@@ -28,7 +28,7 @@ float batteryVoltage = 0;
 char inByte = 0;         // incoming serial byte
 int acounts = 0;      //number of time received a
 const int analogInPin = A0; //connect the battery voltage to arduino A0
-float convertFactor = 75.85; //1024 * x = 13.5
+float convertFactor = 75.85 //1024 * x = 13.5
 
 void setup()
 {

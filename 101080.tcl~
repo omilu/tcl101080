@@ -443,7 +443,7 @@ proc rxTest {} {
 		setQuit true "Bad Sinad";
 		setError true;
 	}
-	traceAdd sens $myVar;
+	traceAdd sens [string trim $myVar];
 	#wait until timer expires
 	#wait until timer expires
 	while {![checkTimer]} {

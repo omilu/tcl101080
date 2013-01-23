@@ -64,6 +64,7 @@ proc init_globals {} {
 	set g_globals(g_myError) false;
 	set g_globals(g_myQuitMessage) 0;
 	set g_globals(g_logFile) empty;
+	set g_globals(g_serialFile) empty;
 	set g_globals(g_startTime) 0;
 	set g_globals(g_endTime) 0;
 	set g_globals(g_quit) 0;
@@ -159,9 +160,9 @@ set g_globals(g_ifrHost) $spawn_id;
 
 #the arduino serial looks just like a file
 #no need for expect
-#set g_arduinoSerial [open $g_arduinoSerialPort r+];
-#fconfigure $g_arduinoSerial -mode "9600,n,8,1";
-#fconfigure $g_arduinoSerial -buffering none
+set g_globals(g_serialFile) [open $g_globals(g_arduinoSerialPort) r+];
+fconfigure $g_globals(g_serialFile) -mode "9600,n,8,1";
+fconfigure $g_globals(g_serialFile) -buffering none;
 
 #the Timer is an egg timer
 #exports 2 function setTimer {timeInSeconds} and checkTimer
@@ -262,6 +263,23 @@ proc ifrInit {} {
 	#ifrSetGenFreq; #DUT RCV Frequency
 	after 100;
 }
+
+proc ardInit {} {
+	global g_globals;
+	after $g_global(g_ifrResponseTime);
+	set data [gets $g_global(g_serialFile);
+	puts "Arduino sent $data"
+	after $g_global(g_ifrResponseTime);
+	puts $g_global(g_serialFile);
+	after $g_global(g_ifrResponseTime);
+	set data [gets $g_global(g_serialFile);
+	puts "Arduino measured $data";
+	puts "Arduino ready";
+}
+	
+
+
+
 
 proc abort {}	{
 	puts "aborting!"
