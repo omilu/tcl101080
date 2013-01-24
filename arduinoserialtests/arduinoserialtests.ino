@@ -28,7 +28,7 @@ float batteryVoltage = 0;
 char inByte = 0;         // incoming serial byte
 int acounts = 0;      //number of time received a
 const int analogInPin = A0; //connect the battery voltage to arduino A0
-float convertFactor = 75.85; //1024 * x = 13.5
+float convertFactor = 74.2; //1024 * x = 13.5
 
 void setup()
 {
@@ -64,11 +64,7 @@ void loop()
 	batteryVoltage = (float) analogRead(analogInPin);
 	batteryVoltage = batteryVoltage / convertFactor;
       } 
-        Serial.print("arduino has received this many as: ");
-        Serial.print(acounts);
-        Serial.print('a  '); //send the data to the computer
-	Serial.print("battery volts is");
-	Serial.println(batteryVoltage);
+        Serial.println(batteryVoltage);
       
   }
 }

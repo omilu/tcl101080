@@ -72,10 +72,10 @@ proc init_globals {} {
 	set g_globals(g_currentProcedure) 0;
 	set g_globals(g_txPower) 25;
 	set g_globals(g_rxSensitivity) -30;
-	set g_globals(g_txTime) 2;
-	set g_globals(g_rxTime) 2;
-	set g_globals(g_idleTime) 2; #in seconds
-	set g_globals(g_ifrSettleTime) 1000; #in useconds length to wait to meas
+	set g_globals(g_txTime) 6;
+	set g_globals(g_rxTime) 6;
+	set g_globals(g_idleTime) 10; #in seconds
+	set g_globals(g_ifrSettleTime) 4000; #in useconds length to wait to meas
 	set g_globals(g_ifrResponseTime) 100; #in useconds legnth to wait for expect response
 }
 
@@ -158,11 +158,6 @@ proc setQuit {myvar myMessage} {
 spawn telnet 199.131.111.62 1234;
 set g_globals(g_ifrHost) $spawn_id;
 
-#the arduino serial looks just like a file
-#no need for expect
-set g_globals(g_serialFile) [open $g_globals(g_arduinoSerialPort) r+];
-fconfigure $g_globals(g_serialFile) -mode "9600,n,8,1";
-fconfigure $g_globals(g_serialFile) -buffering none;
 
 #the Timer is an egg timer
 #exports 2 function setTimer {timeInSeconds} and checkTimer
@@ -265,20 +260,33 @@ proc ifrInit {} {
 }
 
 proc ardInit {} {
+#the arduino serial looks just like a file
+#no need for expect
 	global g_globals;
-	after $g_global(g_ifrResponseTime);
-	set data [gets $g_global(g_serialFile);
+set g_globals(g_serialFile) [open "/dev/ttyS18" r+];
+fconfigure $g_globals(g_serialFile) -mode "9600,n,8,1";
+fconfigure $g_globals(g_serialFile) -buffering none;
+	global g_globals;
+	after $g_globals(g_ifrResponseTime);
+	set data [gets $g_globals(g_serialFile)];
 	puts "Arduino sent $data"
-	after $g_global(g_ifrResponseTime);
-	puts $g_global(g_serialFile);
-	after $g_global(g_ifrResponseTime);
-	set data [gets $g_global(g_serialFile);
+	after $g_globals(g_ifrResponseTime);
+	puts $g_globals(g_serialFile) "a";
+	after $g_globals(g_ifrResponseTime);
+	set data [gets $g_globals(g_serialFile)];
 	puts "Arduino measured $data";
 	puts "Arduino ready";
 }
 	
-
-
+proc ardMeas {} {
+	global g_globals;
+	global g_accumulator;
+	puts $g_globals(g_serialFile) "a";
+	after 1000;
+	set data [gets $g_globals(g_serialFile)];
+	puts "arduino measured $data";
+	return $data;
+}
 
 
 proc abort {}	{
@@ -303,9 +311,6 @@ proc ifrKeyRadio {} {
 	puts "keying radio"
 	global g_globals;
 	set mytemp [mySend ":syst:conf:port:uut 0\r"];
-	puts "here is what the variable returned";
-	puts "$mytemp";
-	after $g_globals(g_ifrResponseTime);
 }
 
 proc ifrFreqError {} {
@@ -331,10 +336,9 @@ proc ifrTxPower {} {
 }
 
 proc ifrUnkeyRadio {} {
-	puts "unkey radio"
 	global g_globals;
 	set mytemp [mySend ":syst:conf:port:uut 15\r"];
-	after $g_globals(g_ifrResponseTime);
+#	after $g_globals(g_ifrResponseTime);
 
 }
 
@@ -354,25 +358,11 @@ proc ifrTestPortQuery {} {
 }
 
 proc ifrGenOn {} {
-	puts "turn ifr gen on"
-	#take a reading
 	set mytemp [mySend "rf:gen:enab On\r"];
-	puts "here is what the variable returned";
-	puts "$mytemp";
-	#puts [myExpect];
-	#test its value
-	#logit
 }
 
 proc ifrGenOff {} {
-	puts "turn gen off:"
-	#take a reading
 	set mytemp [mySend "rf:gen:enab Off\r"];
-	puts "here is what the variable returned";
-	puts "$mytemp";
-	#puts [myExpect];
-	#test its value
-	#logit
 }
 
 proc ifrCheckSinad {} {
@@ -412,12 +402,14 @@ proc debugIfr {} {
 	ifrgenoff;
 }
 proc txTest {} {
-	puts "performing transmit test"
-	ifrKeyRadio;
 	global g_globals;
 	#set timer for 6 sec
 	setTimer $g_globals(g_txTime); 
+	puts "performing transmit test"
+	ifrKeyRadio;
 	#wait for 4 sec
+        set g_globals(g_currentProcedure) [currentProc];
+	checkError;
 	after $g_globals(g_ifrSettleTime);
 	#take a measurement
 	#this function does the limit checking and logging
@@ -430,24 +422,26 @@ proc txTest {} {
 		setQuit true "Power failed $g_globals(g_txPower)";
 		setError true
 	}
+	traceAdd txBattery [ardMeas];
 	traceAdd txPower [string trim $myVar];
 	#wait until timer expires
 	while {![checkTimer]} {
 	}
 	ifrUnkeyRadio;
 	#insert an error to test
-        set g_globals(g_currentProcedure) [currentProc];
-	checkError;
 }
 
 
 proc rxTest {} {
-	puts "performing Recive test"
 	#ifrGenOn;
 	global g_globals;
 	#set timer for 6 sec
 	setTimer $g_globals(g_rxTime); 
+	puts "performing Recive test"
+	ifrGenOn;
 	#wait for 4 sec
+        set g_globals(g_currentProcedure) [currentProc];
+	checkError;
 	after $g_globals(g_ifrSettleTime);
 	#take a measurement
 	#this function does the limit checking and logging
@@ -464,18 +458,19 @@ proc rxTest {} {
 	traceAdd sens [string trim $myVar];
 	#wait until timer expires
 	#wait until timer expires
+	traceAdd rxBattery [ardMeas];
 	while {![checkTimer]} {
 	}
-        set g_globals(g_currentProcedure) [currentProc];
-	checkError;
+	ifrGenOff;
 }
 
 proc idleTest {} {
-	puts "idling";
 	global g_globals;
 	#set timer for 6 sec
 	setTimer $g_globals(g_idleTime); 
+	puts "idling";
 	#wait for 4 sec
+	checkError;
 	after $g_globals(g_ifrSettleTime);
 	#take a measurement
 	#log shit and measrue from the arduinoo also
@@ -483,11 +478,11 @@ proc idleTest {} {
 	
 #log shit here and query the arduino
 	#wait until timer expires
+	traceAdd idleBattery [ardMeas];
 	while {![checkTimer]} {
 	}
 	#insert an error to test
-	checkError;
-	after $g_globals(g_ifrResponseTime);
+#	after $g_globals(g_ifrResponseTime);
 }
 
 
@@ -518,6 +513,7 @@ proc sigint_handler {} {
 	#exit
 	global g_globals;
 	set g_globals(g_endTime) [myGetTime];
+	ifrUnkeyRadio; 
 	puts $g_globals(g_startTime);
 	puts $g_globals(g_endTime);
 	puts $g_globals(g_logFile) "";
@@ -546,7 +542,12 @@ proc main {} {
 	traceEmpty;
 	traceWriteTitlesToFile;
 	ifrInit; 
-
+	ardInit;
+	traceAdd idleBattery [ardMeas];
+	traceAdd idleBattery [ardMeas];
+	traceAdd idleBattery [ardMeas];
+	traceAdd idleBattery [ardMeas];
+	traceAdd idleBattery [ardMeas];
 	
 	set g_globals(g_startTime) [myGetTime];
 	puts $g_globals(g_logFile) {$g_globals(g_startTime)};

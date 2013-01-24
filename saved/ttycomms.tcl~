@@ -28,7 +28,7 @@ while {$iterations} {
 		puts $serial "b";
 		puts "sent b";
 	}
-	after 3000;
+	after 1000;
 	puts "retrieving data"
 	set data [gets $serial];
 	set size [string length $data]
