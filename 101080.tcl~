@@ -75,7 +75,7 @@ proc init_globals {} {
 	set g_globals(g_txTime) 6;
 	set g_globals(g_rxTime) 6;
 	set g_globals(g_idleTime) 10; #in seconds
-	set g_globals(g_ifrSettleTime) 3000; #in useconds length to wait to meas
+	set g_globals(g_ifrSettleTime) 4000; #in useconds length to wait to meas
 	set g_globals(g_ifrResponseTime) 100; #in useconds legnth to wait for expect response
 }
 
@@ -263,7 +263,7 @@ proc ardInit {} {
 #the arduino serial looks just like a file
 #no need for expect
 	global g_globals;
-set g_globals(g_serialFile) [open "/dev/ttyS18" r+];
+set g_globals(g_serialFile) [open "/dev/ttyS21" r+];
 fconfigure $g_globals(g_serialFile) -mode "9600,n,8,1";
 fconfigure $g_globals(g_serialFile) -buffering none;
 	global g_globals;
@@ -402,11 +402,11 @@ proc debugIfr {} {
 	ifrgenoff;
 }
 proc txTest {} {
-	puts "performing transmit test"
-	ifrKeyRadio;
 	global g_globals;
 	#set timer for 6 sec
 	setTimer $g_globals(g_txTime); 
+	puts "performing transmit test"
+	ifrKeyRadio;
 	#wait for 4 sec
         set g_globals(g_currentProcedure) [currentProc];
 	checkError;
@@ -433,11 +433,11 @@ proc txTest {} {
 
 
 proc rxTest {} {
-	puts "performing Recive test"
 	#ifrGenOn;
 	global g_globals;
 	#set timer for 6 sec
 	setTimer $g_globals(g_rxTime); 
+	puts "performing Recive test"
 	ifrGenOn;
 	#wait for 4 sec
         set g_globals(g_currentProcedure) [currentProc];
@@ -465,10 +465,10 @@ proc rxTest {} {
 }
 
 proc idleTest {} {
-	puts "idling";
 	global g_globals;
 	#set timer for 6 sec
 	setTimer $g_globals(g_idleTime); 
+	puts "idling";
 	#wait for 4 sec
 	checkError;
 	after $g_globals(g_ifrSettleTime);
@@ -503,6 +503,20 @@ proc timetest3 {} {
 puts "time to wait 5 sec: [time {timetest3}]"
 
 #++++++++++++++++++++++++++++++++++++++++++
+proc duration {int_time} {
+	set timeList [list]
+	foreach div {86400 3600 60 1} mod {0 24 60 60} name {day hr min sec} {
+		set n [expr {$int_time / $div}]
+		if {$mod > 0} {set n [expr {$n % $mod}]}
+		if {$n > 1} {
+			lappend timeList "$n ${name}s"
+		} elseif {$n == 1} {
+			lappend timeList "$n $name"
+		}
+	}
+	return [join $timeList]
+}
+
 #this adds catches the ctrl-c signal and allow for a graceful
 #shutdown how to ad
 package require Expect
@@ -523,6 +537,9 @@ proc sigint_handler {} {
 	puts $g_globals(g_logFile) "$g_globals(g_startTime)\t startTime";
 	puts $g_globals(g_logFile) "$g_globals(g_endTime)\t endTime";
 	puts $g_globals(g_logFile) "[expr $g_globals(g_endTime) - $g_globals(g_startTime)] seconds duration of test";
+	set myShit [expr $g_globals(g_endTime) - $g_globals(g_startTime)];
+	set myShit [duration $myShit];
+	puts $g_globals(g_logFile) "$myShit seconds duration of test";
 	set ::looping false;
 	abort
 }

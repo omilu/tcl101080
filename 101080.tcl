@@ -263,7 +263,7 @@ proc ardInit {} {
 #the arduino serial looks just like a file
 #no need for expect
 	global g_globals;
-set g_globals(g_serialFile) [open "/dev/ttyS18" r+];
+set g_globals(g_serialFile) [open "/dev/ttyS21" r+];
 fconfigure $g_globals(g_serialFile) -mode "9600,n,8,1";
 fconfigure $g_globals(g_serialFile) -buffering none;
 	global g_globals;
@@ -271,6 +271,8 @@ fconfigure $g_globals(g_serialFile) -buffering none;
 	set data [gets $g_globals(g_serialFile)];
 	puts "Arduino sent $data"
 	after $g_globals(g_ifrResponseTime);
+	#flush the buffer
+	flush $g_globals(g_serialFile);
 	puts $g_globals(g_serialFile) "a";
 	after $g_globals(g_ifrResponseTime);
 	set data [gets $g_globals(g_serialFile)];
@@ -281,6 +283,8 @@ fconfigure $g_globals(g_serialFile) -buffering none;
 proc ardMeas {} {
 	global g_globals;
 	global g_accumulator;
+	#flush the buffer first
+	flush $g_globals(g_serialFile);
 	puts $g_globals(g_serialFile) "a";
 	after 1000;
 	set data [gets $g_globals(g_serialFile)];
@@ -503,6 +507,20 @@ proc timetest3 {} {
 puts "time to wait 5 sec: [time {timetest3}]"
 
 #++++++++++++++++++++++++++++++++++++++++++
+proc duration {int_time} {
+	set timeList [list]
+	foreach div {86400 3600 60 1} mod {0 24 60 60} name {day hr min sec} {
+		set n [expr {$int_time / $div}]
+		if {$mod > 0} {set n [expr {$n % $mod}]}
+		if {$n > 1} {
+			lappend timeList "$n ${name}s"
+		} elseif {$n == 1} {
+			lappend timeList "$n $name"
+		}
+	}
+	return [join $timeList]
+}
+
 #this adds catches the ctrl-c signal and allow for a graceful
 #shutdown how to ad
 package require Expect
@@ -523,6 +541,9 @@ proc sigint_handler {} {
 	puts $g_globals(g_logFile) "$g_globals(g_startTime)\t startTime";
 	puts $g_globals(g_logFile) "$g_globals(g_endTime)\t endTime";
 	puts $g_globals(g_logFile) "[expr $g_globals(g_endTime) - $g_globals(g_startTime)] seconds duration of test";
+	set myShit [expr $g_globals(g_endTime) - $g_globals(g_startTime)];
+	set myShit [duration $myShit];
+	puts $g_globals(g_logFile) "$myShit seconds duration of test";
 	set ::looping false;
 	abort
 }
