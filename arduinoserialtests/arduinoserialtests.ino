@@ -36,7 +36,7 @@ void setup()
   Serial.begin(9600);
   pinMode(2, INPUT);   // digital sensor is on digital pin 2
   establishContact();  // send a byte to establish contact until receiver responds 
-  Serial.println('Arduino comms ready');
+  Serial.println("Arduino comms ready");
 }
 
 void loop()
@@ -63,8 +63,8 @@ void loop()
         acounts++; //number of times a
 	batteryVoltage = (float) analogRead(analogInPin);
 	batteryVoltage = batteryVoltage / convertFactor;
-      } 
         Serial.println(batteryVoltage);
+      } 
       
   }
 }
