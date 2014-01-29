@@ -8,75 +8,75 @@
 #to poll
 package require Expect
 
- proc csv:parse {line {sepa ,}} {
-     set lst [split $line $sepa]
-     set nlst {}
-     set l [llength $lst]
-     for {set i 0} {$i < $l} {incr i} {
-         if {[string index [lindex $lst $i] 0] == "\""} {
-            # start of a stringhttp://purl.org/thecliff/tcl/wiki/721.html
-            if {[string index [lindex $lst $i] end] == "\""} {
-               # check for completeness, on our way we repair double double quotes
-               set c1 [string range [lindex $lst $i] 1 end]
-               set n1 [regsub -all {""} $c1 {"} c2]
-               set n2 [regsub -all {"} $c2 {"} c3]
-               if {$n1 == $n2} {
-                  # string extents to next list element
-                  set new_el [join [lrange $lst $i [expr {$i + 1}]] $sepa]
-                  set lst [lreplace $lst $i [expr {$i + 1}] $new_el]
-                  incr i -1
-                  incr l -1
-                  continue
-                  } else {
-                  # we are done with this element
-                  lappend nlst [string range $c2 0 [expr {[string length $c2] - 2}]]
-                  continue
-                  }
-               } else {
-               # string extents to next list element
-               set new_el [join [lrange $lst $i [expr {$i + 1}]] $sepa]
-               set lst [lreplace $lst $i [expr {$i + 1}] $new_el]
-               incr i -1
-               incr l -1
-               continue
-               }
-            } else {
-            # the most simple case
-            lappend nlst [lindex $lst $i]
-            continue
-            }
-         }
-     return $nlst
+proc csv:parse {line {sepa ,}} {
+	set lst [split $line $sepa]
+	set nlst {}
+	set l [llength $lst]
+	for {set i 0} {$i < $l} {incr i} {
+		if {[string index [lindex $lst $i] 0] == "\""} {
+			# start of a stringhttp://purl.org/thecliff/tcl/wiki/721.html
+			if {[string index [lindex $lst $i] end] == "\""} {
+				# check for completeness, on our way we repair double double quotes
+				set c1 [string range [lindex $lst $i] 1 end]
+				set n1 [regsub -all {""} $c1 {"} c2]
+					set n2 [regsub -all {"} $c2 {"} c3]
+					if {$n1 == $n2} {
+					# string extents to next list element
+					set new_el [join [lrange $lst $i [expr {$i + 1}]] $sepa]
+					set lst [lreplace $lst $i [expr {$i + 1}] $new_el]
+					incr i -1
+					incr l -1
+					continue
+	  } else {
+	  # we are done with this element
+	  lappend nlst [string range $c2 0 [expr {[string length $c2] - 2}]]
+	  continue
+	  }
+       } else {
+       # string extents to next list element
+       set new_el [join [lrange $lst $i [expr {$i + 1}]] $sepa]
+       set lst [lreplace $lst $i [expr {$i + 1}] $new_el]
+       incr i -1
+       incr l -1
+       continue
+       }
+    } else {
+    # the most simple case
+    lappend nlst [lindex $lst $i]
+    continue
+    }
+ }
+ return $nlst
  }
 
 
-#globals
+ #globals
 
-proc init_globals {} {
- 	global g_globals;
-	set g_globals(g_myTimer) 0;
-	set g_globals(g_systemTime) [clock seconds];
-	set g_globals(g_ifrIp) "199.131.111.62 1234";
-	set g_globals(g_arduinoSerialPort) "/dev/ttyS18";
-	set g_globals(g_state) on;
-	set g_globals(g_accumulator) 0 ;
-	set g_globals(g_myQuit) false;
-	set g_globals(g_myError) false;
-	set g_globals(g_myQuitMessage) 0;
-	set g_globals(g_logFile) empty;
-	set g_globals(g_serialFile) empty;
-	set g_globals(g_startTime) 0;
-	set g_globals(g_endTime) 0;
-	set g_globals(g_quit) 0;
-	set g_globals(g_error) 0;
-	set g_globals(g_currentProcedure) 0;
-	set g_globals(g_txPower) 25;
-	set g_globals(g_rxSensitivity) -30;
-	set g_globals(g_txTime) 6;
-	set g_globals(g_rxTime) 6;
-	set g_globals(g_idleTime) 10; #in seconds
-	set g_globals(g_ifrSettleTime) 4000; #in useconds length to wait to meas
-	set g_globals(g_ifrResponseTime) 100; #in useconds legnth to wait for expect response
+ proc init_globals {} {
+	 global g_globals;
+	 set g_globals(g_myTimer) 0;
+	 set g_globals(g_systemTime) [clock seconds];
+	 set g_globals(g_ifrIp) "199.131.111.62 1234";
+	 set g_globals(g_arduinoSerialPort) "/dev/ttyS18";
+	 set g_globals(g_state) on;
+	 set g_globals(g_accumulator) 0 ;
+	 set g_globals(g_myQuit) false;
+	 set g_globals(g_myError) false;
+	 set g_globals(g_myQuitMessage) 0;
+	 set g_globals(g_logFile) empty;
+	 set g_globals(g_serialFile) empty;
+	 set g_globals(g_startTime) 0;
+	 set g_globals(g_endTime) 0;
+	 set g_globals(g_quit) 0;
+	 set g_globals(g_error) 0;
+	 set g_globals(g_currentProcedure) 0;
+	 set g_globals(g_txPower) 25;
+	 set g_globals(g_rxSensitivity) -30;
+	 set g_globals(g_txTime) 6;
+	 set g_globals(g_rxTime) 6;
+	 set g_globals(g_idleTime) 48; #in seconds
+	 set g_globals(g_ifrSettleTime) 4000; #in useconds length to wait to meas
+	 set g_globals(g_ifrResponseTime) 100; #in useconds legnth to wait for expect response
 }
 
 proc init_accumulator {} {
@@ -127,7 +127,7 @@ proc checkError {} {
 		puts "error detected"
 		puts "ABORTING";
 		sigint_handler;
-	}
+}
 }
 
 proc currentProc {} {
@@ -155,7 +155,7 @@ proc setQuit {myvar myMessage} {
 #will be handled with expect
 #fucking variable can't get to work with spawn therefore hardcode it
 #spawn telnet $g_ifrIp;
-spawn telnet 199.131.111.62 1234;
+spawn telnet 199.131.111.61 1234;
 set g_globals(g_ifrHost) $spawn_id;
 
 
@@ -203,12 +203,12 @@ proc traceWriteTitlesToFile {} {
 		puts -nonewline $g_globals(g_logFile) "[lindex $myList $i]";
 		if {$i < [expr [llength $myList] - 3]} {
 			puts -nonewline $g_globals(g_logFile) ", ";
-		} else {
-			puts $g_globals(g_logFile) "";
-		}
-
+	} else {
+		puts $g_globals(g_logFile) "";
 	}
-	puts $g_globals(g_logFile) "start";
+
+}
+puts $g_globals(g_logFile) "start";
 }
 #writes to the file and empties the trace
 proc traceAppendToFile {} {
@@ -216,25 +216,25 @@ proc traceAppendToFile {} {
 	global g_globals;
 	foreach i [array names g_accumulator] {
 		puts -nonewline $g_globals(g_logFile) "$g_accumulator($i)\t";
-	}
-	puts $g_globals(g_logFile) "";
-	traceEmpty
+}
+puts $g_globals(g_logFile) "";
+traceEmpty
 }
 
 proc traceAdd {someKey someValue} {
 	global g_accumulator;
 	if {![info exists g_accumulator($someKey)]} {
-			puts "tried to add an Invalid key";
-			return;
-	}
-	set g_accumulator($someKey) $someValue;
+		puts "tried to add an Invalid key";
+		return;
+}
+set g_accumulator($someKey) $someValue;
 }
 
 proc traceEmpty {} {
 	global g_accumulator;
 	foreach i [array names g_accumulator] {
 		set g_accumulator($i) 0;
-	}
+}
 }
 
 
@@ -260,27 +260,31 @@ proc ifrInit {} {
 }
 
 proc ardInit {} {
-#the arduino serial looks just like a file
-#no need for expect
+	#the arduino serial looks just like a file
+	#no need for expect
 	global g_globals;
-set g_globals(g_serialFile) [open "/dev/ttyS21" r+];
-fconfigure $g_globals(g_serialFile) -mode "9600,n,8,1";
-fconfigure $g_globals(g_serialFile) -buffering none;
+	set g_globals(g_serialFile) [open "/dev/ttyS23" r+];
+	fconfigure $g_globals(g_serialFile) -mode "9600,n,8,1";
+	fconfigure $g_globals(g_serialFile) -buffering none;
 	global g_globals;
 	after $g_globals(g_ifrResponseTime);
 	set data [gets $g_globals(g_serialFile)];
 	puts "Arduino sent $data"
 	after $g_globals(g_ifrResponseTime);
+	#flush the buffer
+	flush $g_globals(g_serialFile);
 	puts $g_globals(g_serialFile) "a";
 	after $g_globals(g_ifrResponseTime);
 	set data [gets $g_globals(g_serialFile)];
 	puts "Arduino measured $data";
 	puts "Arduino ready";
 }
-	
+
 proc ardMeas {} {
 	global g_globals;
 	global g_accumulator;
+	#flush the buffer first
+	flush $g_globals(g_serialFile);
 	puts $g_globals(g_serialFile) "a";
 	after 1000;
 	set data [gets $g_globals(g_serialFile)];
@@ -338,19 +342,19 @@ proc ifrTxPower {} {
 proc ifrUnkeyRadio {} {
 	global g_globals;
 	set mytemp [mySend ":syst:conf:port:uut 15\r"];
-#	after $g_globals(g_ifrResponseTime);
+	#	after $g_globals(g_ifrResponseTime);
 
 }
 
 proc ifrTestPort {toggle} {
 	if {$toggle == on} {
 		mySend ":syst:conf:port:uut 15\r"
-	}
-	if {$toggle == off} {
-		mySend ":syst:conf:port:uut 0\r"
-	} else {
-		mySend ":syst:conf:port:uut 15\r"
-	}
+}
+if {$toggle == off} {
+	mySend ":syst:conf:port:uut 0\r"
+} else {
+	mySend ":syst:conf:port:uut 15\r"
+}
 }
 
 proc ifrTestPortQuery {} {
@@ -390,16 +394,16 @@ proc debugIfr {} {
 	#this function does the limit checking and logging
 	#ifrFreqError;
 	#only check for power initially
-	
+
 	if {[set myvar [ifrTxPower]] > $g_globals(g_txPower)} {
 		puts "power is good";
-	} else {
-		puts "power is bad";
-	}
-	#wait until timer expires
-	while {![checkTimer]} {
-	}
-	ifrgenoff;
+} else {
+	puts "power is bad";
+}
+#wait until timer expires
+while {![checkTimer]} {
+}
+ifrgenoff;
 }
 proc txTest {} {
 	global g_globals;
@@ -408,7 +412,7 @@ proc txTest {} {
 	puts "performing transmit test"
 	ifrKeyRadio;
 	#wait for 4 sec
-        set g_globals(g_currentProcedure) [currentProc];
+	set g_globals(g_currentProcedure) [currentProc];
 	checkError;
 	after $g_globals(g_ifrSettleTime);
 	#take a measurement
@@ -417,18 +421,18 @@ proc txTest {} {
 	#only check for power initially
 	if {[set myVar [ifrTxPower]] > $g_globals(g_txPower)} {
 		puts "power is good";
-	} else {
-		puts "power is bad";
-		setQuit true "Power failed $g_globals(g_txPower)";
-		setError true
-	}
-	traceAdd txBattery [ardMeas];
-	traceAdd txPower [string trim $myVar];
-	#wait until timer expires
-	while {![checkTimer]} {
-	}
-	ifrUnkeyRadio;
-	#insert an error to test
+} else {
+	puts "power is bad";
+	setQuit true "Power failed $g_globals(g_txPower)";
+	setError true
+}
+traceAdd txBattery [ardMeas];
+traceAdd txPower [string trim $myVar];
+#wait until timer expires
+while {![checkTimer]} {
+}
+ifrUnkeyRadio;
+#insert an error to test
 }
 
 
@@ -440,28 +444,28 @@ proc rxTest {} {
 	puts "performing Recive test"
 	ifrGenOn;
 	#wait for 4 sec
-        set g_globals(g_currentProcedure) [currentProc];
+	set g_globals(g_currentProcedure) [currentProc];
 	checkError;
 	after $g_globals(g_ifrSettleTime);
 	#take a measurement
 	#this function does the limit checking and logging
 	#ifrFreqError;
 	#only check for power initially
-	
+
 	if {[set myVar [ifrCheckSinad]] > $g_globals(g_rxSensitivity)} {
 		puts "sinad is good";
-	} else {
-		puts "sinad is bad";
-		setQuit true "Bad Sinad";
-		setError true;
-	}
-	traceAdd sens [string trim $myVar];
-	#wait until timer expires
-	#wait until timer expires
-	traceAdd rxBattery [ardMeas];
-	while {![checkTimer]} {
-	}
-	ifrGenOff;
+} else {
+	puts "sinad is bad";
+	setQuit true "Bad Sinad";
+	setError true;
+}
+traceAdd sens [string trim $myVar];
+#wait until timer expires
+#wait until timer expires
+traceAdd rxBattery [ardMeas];
+while {![checkTimer]} {
+}
+ifrGenOff;
 }
 
 proc idleTest {} {
@@ -475,13 +479,13 @@ proc idleTest {} {
 	#take a measurement
 	#log shit and measrue from the arduinoo also
 	#query the arduino
-	
-#log shit here and query the arduino
+
+	#log shit here and query the arduino
 	#wait until timer expires
 	traceAdd idleBattery [ardMeas];
 	while {![checkTimer]} {
-	}
-	#insert an error to test
+}
+#insert an error to test
 #	after $g_globals(g_ifrResponseTime);
 }
 
@@ -510,11 +514,11 @@ proc duration {int_time} {
 		if {$mod > 0} {set n [expr {$n % $mod}]}
 		if {$n > 1} {
 			lappend timeList "$n ${name}s"
-		} elseif {$n == 1} {
-			lappend timeList "$n $name"
-		}
+	} elseif {$n == 1} {
+		lappend timeList "$n $name"
 	}
-	return [join $timeList]
+}
+return [join $timeList]
 }
 
 #this adds catches the ctrl-c signal and allow for a graceful
@@ -528,12 +532,13 @@ proc sigint_handler {} {
 	global g_globals;
 	set g_globals(g_endTime) [myGetTime];
 	ifrUnkeyRadio; 
+	ifrGenOff;
 	puts $g_globals(g_startTime);
 	puts $g_globals(g_endTime);
 	puts $g_globals(g_logFile) "";
 	puts $g_globals(g_logFile) "";
-        puts $g_globals(g_logFile) "$g_globals(g_currentProcedure)\t died";
-        puts $g_globals(g_logFile) "$g_globals(g_myQuitMessage)\t died";
+	puts $g_globals(g_logFile) "$g_globals(g_currentProcedure)\t died";
+	puts $g_globals(g_logFile) "$g_globals(g_myQuitMessage)\t died";
 	puts $g_globals(g_logFile) "$g_globals(g_startTime)\t startTime";
 	puts $g_globals(g_logFile) "$g_globals(g_endTime)\t endTime";
 	puts $g_globals(g_logFile) "[expr $g_globals(g_endTime) - $g_globals(g_startTime)] seconds duration of test";
@@ -565,7 +570,7 @@ proc main {} {
 	traceAdd idleBattery [ardMeas];
 	traceAdd idleBattery [ardMeas];
 	traceAdd idleBattery [ardMeas];
-	
+
 	set g_globals(g_startTime) [myGetTime];
 	puts $g_globals(g_logFile) {$g_globals(g_startTime)};
 
@@ -573,7 +578,7 @@ proc main {} {
 	set x 0
 	while {!$g_globals(g_myQuit) && !$g_globals(g_myError)}	{
 		puts "\nStarting a cycle"
-			#debugIfr;
+		#debugIfr;
 		#dump trace to file
 		traceAppendToFile;		
 		puts "\n";
@@ -595,12 +600,12 @@ proc main {} {
 		puts "Error = $g_globals(g_myError)";
 		puts "the current procdure $g_globals(g_currentProcedure)";
 		checkError;
-	}	
+}	
 
-	puts "\n\n\n\nTest Complete\n\n"
-	#go to clean up
-	sigint_handler;
-	
+puts "\n\n\n\nTest Complete\n\n"
+#go to clean up
+sigint_handler;
+
 
 }
 
@@ -632,14 +637,14 @@ puts "$g_state out of proc";
 setTimer 3;
 
 while {![checkTimer]} {
-	}
+}
 puts "done waiting";
 
 setTimer 3;
 while {true} {
 	if {[checkTimer]} {
 		break
-	}
+}
 }
 puts "done waitin gagain";
 
