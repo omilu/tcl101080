@@ -72,10 +72,10 @@ proc csv:parse {line {sepa ,}} {
 	 set g_globals(g_currentProcedure) 0;
 	 set g_globals(g_txPower) 20;
 	 set g_globals(g_txDist) 110;
-	 set g_globals(g_txFreqError) 650;
-	 set g_globals(g_rxSensitivity) 12;
-	 set g_globals(g_txTime) 55;#was 55sec
-	 set g_globals(g_rxTime) 5;
+	 set g_globals(g_txFreqError) 450;
+	 set g_globals(g_rxSensitivity) 12;#was 12
+	 set g_globals(g_txTime) 30;#eiterh 55sec for 100% or 30 for 50percent
+	 set g_globals(g_rxTime) 25;#either 5 for 100% or 25 for 50percent duty
 	 set g_globals(g_idleTime) 5; #in seconds
 	 set g_globals(g_ifrSettleTime) 4000; #in useconds length to wait to meas
 	 set g_globals(g_ifrResponseTime) 100; #in useconds legnth to wait for expect response
@@ -464,6 +464,7 @@ ifrgenoff;
 }
 proc txTest {} {
 	global g_globals;
+	global g_accumulator;
 	#set timer for 6 sec
 	setTimer $g_globals(g_txTime); 
 	puts "performing transmit test"
@@ -473,40 +474,52 @@ proc txTest {} {
 	set g_globals(g_currentProcedure) [currentProc];
 	checkError;
 	after $g_globals(g_ifrSettleTime);
-	#take a measurement
-	#this function does the limit checking and logging
-	#ifrfreqerror;
-	#only check for power initially
-	if {[set myVar [ifrTxPower]] > $g_globals(g_txPower)} {
-		puts "power is good";
-} else {
-	puts "power is bad";
-	setQuit true "Power failed $g_globals(g_txPower)";
-	setError true
+	while {![checkTimer]} {
+		#take a measurement
+		#this function does the limit checking and logging
+		#ifrfreqerror;
+		#only check for power initially
+		if {[set myVar [ifrTxPower]] > $g_globals(g_txPower)} {
+		#	puts "power is good";
+		} else {
+			puts "power is bad";
+			setQuit true "Power failed $g_globals(g_txPower)";
+			setError true
+		}
+		#traceAdd txBattery [ardMeas];
+		if {($g_accumulator(txPower) == 0) ||  
+			($g_accumulator(txPower) > [string trim $myVar])} {
+			traceAdd txPower [string trim $myVar];
+		}
+			after $g_globals(g_ifrResponseTime);
+			if {[set myVar [ifrTxDist]] < $g_globals(g_txDist)} {
+		#		puts "txdist is good";
+		} else {
+			puts "txdist is bad";
+			setQuit true "txdist failed $g_globals(g_txDist)";
+			setError true
+		}
+		if {($g_accumulator(txDist) == 0) ||  
+			($g_accumulator(txDist) < [string trim $myVar])} {
+			traceAdd txDist [string trim $myVar];
+		}
+			after $g_globals(g_ifrResponseTime);
+			if {abs([set myVar [ifrTxFreqError]]) < $g_globals(g_txFreqError)} {
+				puts "txFreqError is good";
+		} else {
+			puts "txFreqError is bad";
+			setQuit true "txFreqError $g_globals(g_txFreqError)";
+			setError true
+		}
+		if {(abs($g_accumulator(txFreqError)) == 0) ||  
+			(abs($g_accumulator(txFreqError)) < abs([string trim $myVar]))} {
+		traceAdd txFreqError [string trim $myVar];
+	}
+			after $g_globals(g_ifrSettleTime);
 }
-#traceAdd txBattery [ardMeas];
-traceAdd txPower [string trim $myVar];
-	after $g_globals(g_ifrSettleTime);
-	if {[set myVar [ifrTxDist]] < $g_globals(g_txDist)} {
-		puts "txdist is good";
-} else {
-	puts "txdist is bad";
-	setQuit true "txdist failed $g_globals(g_txDist)";
-	setError true
-}
-traceAdd txDist [string trim $myVar];
-	after $g_globals(g_ifrSettleTime);
-	if {abs([set myVar [ifrTxFreqError]]) < $g_globals(g_txFreqError)} {
-		puts "txFreqError is good";
-} else {
-	puts "txFreqError is bad";
-	setQuit true "txFreqError $g_globals(g_txFreqError)";
-	setError true
-}
-traceAdd txFreqError [string trim $myVar];
 #wait until timer expires
-while {![checkTimer]} {
-}
+#while {![checkTimer]} {
+#}
 #ifrUnkeyRadio;
 ardUnkeyRadio;
 #insert an error to test
@@ -516,6 +529,7 @@ ardUnkeyRadio;
 proc rxTest {} {
 	#ifrGenOn;
 	global g_globals;
+	global g_accumulator;
 	#set timer for 6 sec
 	setTimer $g_globals(g_rxTime); 
 	puts "performing Recive test"
@@ -524,19 +538,25 @@ proc rxTest {} {
 	set g_globals(g_currentProcedure) [currentProc];
 	checkError;
 	after $g_globals(g_ifrSettleTime);
-	#take a measurement
-	#this function does the limit checking and logging
-	#ifrFreqError;
-	#only check for power initially
+	while {![checkTimer]} {
+		#take a measurement
+		#this function does the limit checking and logging
+		#ifrFreqError;
+		#only check for power initially
 
-	if {[set myVar [ifrCheckSinad]] > $g_globals(g_rxSensitivity)} {
-		puts "sinad is good";
-} else {
-	puts "sinad is bad";
-	setQuit true "Bad Sinad";
-	setError true;
-}
-traceAdd sens [string trim $myVar];
+		if {[set myVar [ifrCheckSinad]] > $g_globals(g_rxSensitivity)} {
+			puts "sinad is good";
+		} else {
+			puts "sinad is bad";
+			setQuit true "Bad Sinad";
+			setError true;
+		}
+		if {($g_accumulator(sens) == 0) ||  
+			($g_accumulator(sens) > [string trim $myVar])} {
+			traceAdd sens [string trim $myVar];
+		}
+		after $g_globals(g_ifrSettleTime);
+	}
 #wait until timer expires
 #wait until timer expires
 #traceAdd rxBattery [ardMeas];

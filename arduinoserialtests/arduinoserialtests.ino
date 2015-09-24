@@ -24,19 +24,17 @@
 
  */
 
-float batteryVoltage = 0;  
 char inByte = 0;         // incoming serial byte
 int acounts = 0;      //number of time received a
-const int analogInPin = A0; //connect the battery voltage to arduino A0
-float convertFactor = 74.2; //1024 * x = 13.5
 
 void setup()
 {
   // start serial port at 9600 bps:
   Serial.begin(9600);
-  pinMode(2, INPUT);   // digital sensor is on digital pin 2
+  pinMode(2, OUTPUT);   // digital sensor is on digital pin 2
+  digitalWrite(2,HIGH);
   establishContact();  // send a byte to establish contact until receiver responds 
-  Serial.println("Arduino comms ready");
+  Serial.println("Arduino remote drive comms ready");
 }
 
 void loop()
@@ -61,10 +59,18 @@ void loop()
     if (command == 'a')
       {  
         acounts++; //number of times a
-	batteryVoltage = (float) analogRead(analogInPin);
-	batteryVoltage = batteryVoltage / convertFactor;
-        Serial.println(batteryVoltage);
-      } 
+	digitalWrite(2, LOW);
+  Serial.println("key");
+
+      }
+     else if (command == 'b')
+    {
+      acounts++; //number of times a
+	digitalWrite(2, HIGH);
+  Serial.println("unkey");
+
+     
+    } 
       
   }
 }
